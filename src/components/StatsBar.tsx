@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import { Card, Grid, Statistic } from 'antd'
 import {
   ClockCircleOutlined,
@@ -25,23 +26,34 @@ interface Props {
   data: TvSeries[]
 }
 
-export function StatsBar({ data }: Props) {
+export const StatsBar = memo(function StatsBar({ data }: Props) {
   const screens = Grid.useBreakpoint()
-  const totalEpisodes = data.reduce((sum, s) => sum + (s.episodesWatched || 0), 0)
-  const topNetwork = networkDistribution(data, 1)[0]?.name ?? '–'
+
+  const stats = useMemo(() => ({
+    totalEpisodes: data.reduce((sum, s) => sum + (s.episodesWatched || 0), 0),
+    topNetwork: networkDistribution(data, 1)[0]?.name ?? '–',
+    hours: totalHoursWatched(data),
+    rating: avgRating(data),
+    genres: uniqueGenres(data).length,
+    completion: completionRate(data),
+    topGenre: topGenreByWatchTime(data),
+    minutes: totalMinutesWatched(data),
+    years: totalYearsWatched(data),
+  }), [data])
+
   const cols = screens.xl ? 5 : screens.md ? 4 : 2
 
   const cards = [
     <Statistic title="Shows Watched" value={data.length} prefix={<VideoCameraOutlined />} />,
-    <Statistic title="Hours Watched" value={totalHoursWatched(data)} suffix="h" prefix={<ClockCircleOutlined />} />,
-    <Statistic title="Avg Rating" value={avgRating(data)} prefix={<StarOutlined />} suffix="/ 10" />,
-    <Statistic title="Unique Genres" value={uniqueGenres(data).length} prefix={<TagsOutlined />} />,
-    <Statistic title="Completion Rate" value={completionRate(data)} suffix="%" prefix={<TrophyOutlined />} />,
-    <Statistic title="Episodes Watched" value={totalEpisodes.toLocaleString()} prefix={<PlayCircleOutlined />} />,
-    <Statistic title="Top Genre" value={topGenreByWatchTime(data)} prefix={<FireOutlined />} />,
-    <Statistic title="Top Network" value={topNetwork} prefix={<WifiOutlined />} />,
-    <Statistic title="Minutes Watched" value={totalMinutesWatched(data)} suffix="m" prefix={<ClockCircleOutlined />} />,
-    <Statistic title="Years Watched" value={totalYearsWatched(data)} precision={2} suffix="y" prefix={<ClockCircleOutlined />} />,
+    <Statistic title="Hours Watched" value={stats.hours} suffix="h" prefix={<ClockCircleOutlined />} />,
+    <Statistic title="Avg Rating" value={stats.rating} prefix={<StarOutlined />} suffix="/ 10" />,
+    <Statistic title="Unique Genres" value={stats.genres} prefix={<TagsOutlined />} />,
+    <Statistic title="Completion Rate" value={stats.completion} suffix="%" prefix={<TrophyOutlined />} />,
+    <Statistic title="Episodes Watched" value={stats.totalEpisodes.toLocaleString()} prefix={<PlayCircleOutlined />} />,
+    <Statistic title="Top Genre" value={stats.topGenre} prefix={<FireOutlined />} />,
+    <Statistic title="Top Network" value={stats.topNetwork} prefix={<WifiOutlined />} />,
+    <Statistic title="Minutes Watched" value={stats.minutes} suffix="m" prefix={<ClockCircleOutlined />} />,
+    <Statistic title="Years Watched" value={stats.years} precision={2} suffix="y" prefix={<ClockCircleOutlined />} />,
   ]
 
   return (
@@ -58,4 +70,4 @@ export function StatsBar({ data }: Props) {
       ))}
     </div>
   )
-}
+})

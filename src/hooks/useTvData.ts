@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Papa from 'papaparse'
 import type { TvSeries } from '../types/series'
 
@@ -50,7 +50,6 @@ export function useTvData() {
   const [data, setData] = useState<TvSeries[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const retryCountRef = useRef(0)
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -84,7 +83,6 @@ export function useTvData() {
 
         setData(result.data.map(mapRow))
         setLoading(false)
-        retryCountRef.current = 0
       })
       .catch(err => {
         if ((err as Error).name === 'AbortError') {

@@ -1,21 +1,22 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Pagination, Spin } from 'antd'
+import { Pagination } from 'antd'
 import { useTvDataContext } from '../context/TvDataContext'
 import { FilterBar, type Filters } from '../components/FilterBar'
 import { ShowGrid } from '../components/ShowGrid'
+import { LoadingState } from '../components/LoadingState'
+import { ErrorState } from '../components/ErrorState'
+import { getSettings, saveSetting } from '../utils/settings'
 
 const DEFAULT_FILTERS: Filters = { search: '', genres: [], status: '', sortBy: 'voteAverage' }
 const DEFAULT_PAGE_SIZE = 24
 
 function loadFilters(): Filters {
   try {
-    const raw = localStorage.getItem('tvdash-settings')
-    if (raw) {
-      const parsed = JSON.parse(raw) as { filters?: Partial<Filters> }
-      return { ...DEFAULT_FILTERS, ...(parsed.filters ?? {}) }
-    }
-  } catch {}
-  return DEFAULT_FILTERS
+    const parsed = getSettings() as { filters?: Partial<Filters> }
+    return { ...DEFAULT_FILTERS, ...(parsed.filters ?? {}) }
+  } catch {
+    return DEFAULT_FILTERS
+  }
 }
 
 export function ShowsPage() {
@@ -27,11 +28,7 @@ export function ShowsPage() {
   const handleFiltersChange = useCallback((f: Filters) => {
     setFilters(f)
     setPage(1)
-    try {
-      const raw = localStorage.getItem('tvdash-settings')
-      const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
-      localStorage.setItem('tvdash-settings', JSON.stringify({ ...existing, filters: f }))
-    } catch {}
+    saveSetting('filters', f)
   }, [])
 
   const deferredFilters = useDeferredValue(filters)
@@ -73,12 +70,8 @@ export function ShowsPage() {
     [filtered, page, pageSize]
   )
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: 64 }}><Spin size="large" tip="Loading series..." /></div>
-  }
-  if (error) {
-    return <Alert type="error" message="Failed to load data" description={error} showIcon action={<Button size="small" onClick={refetch}>Retry</Button>} />
-  }
+  if (loading) return <LoadingState tip="Loading series..." />
+  if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
   return (
     <>

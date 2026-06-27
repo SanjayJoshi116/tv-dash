@@ -1,59 +1,37 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Alert, Button, Card, Col, Descriptions, Grid, Progress, Row, Space, Spin, Statistic, Tag, Typography } from 'antd'
+import { Button, Card, Col, Descriptions, Grid, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
 import { ArrowLeftOutlined, CalendarOutlined, ClockCircleOutlined, PlayCircleOutlined, StarFilled, TrophyOutlined } from '@ant-design/icons'
 import { useTvDataContext } from '../context/TvDataContext'
 import { formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
+import { GENRE_COLORS, STATUS_TAG_COLORS, completionColor, ratingColor } from '../constants/ui'
+import { LoadingState } from '../components/LoadingState'
+import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
-
-const STATUS_COLOR: Record<string, string> = {
-  'Returning Series': 'green',
-  'Ended': 'default',
-  'Canceled': 'red',
-}
-
-const GENRE_COLORS: Record<string, string> = {
-  Animation: 'purple',
-  Action: 'red',
-  'Action & Adventure': 'red',
-  Comedy: 'gold',
-  Drama: 'blue',
-  Fantasy: 'geekblue',
-  'Sci-Fi & Fantasy': 'geekblue',
-  Mystery: 'cyan',
-  Thriller: 'volcano',
-  Romance: 'pink',
-  Horror: 'magenta',
-  Adventure: 'orange',
-}
 
 export function ShowDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data, loading } = useTvDataContext()
+  const { data, loading, error, refetch } = useTvDataContext()
   const screens = Grid.useBreakpoint()
   const theme = useTheme()
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: 64 }}><Spin size="large" /></div>
-  }
+  if (loading) return <LoadingState tip="Loading..." />
+  if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
   const series = data.find(s => s.tvId === Number(id))
 
   if (!series) {
     return (
-      <Alert
-        type="error"
-        message="Show not found"
-        action={<Button onClick={() => navigate('/shows')}>Back to Shows</Button>}
-      />
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/shows')}>
+        Show not found — Back to Shows
+      </Button>
     )
   }
 
-  const ratingColor = series.voteAverage >= 8 ? '#52c41a' : series.voteAverage >= 6 ? '#faad14' : '#f5222d'
+  const color = ratingColor(series.voteAverage)
   const completion = series.totalEpisodes > 0 ? Math.round((series.episodesWatched / series.totalEpisodes) * 100) : 0
-  const completionColor = completion >= 75 ? '#52c41a' : completion >= 40 ? '#faad14' : '#f5222d'
   const allSeasons = Array.from({ length: series.seasons }, (_, i) => i + 1)
 
   return (
@@ -93,7 +71,7 @@ export function ShowDetailPage() {
             maxWidth: 280,
             height: 300,
             borderRadius: 12,
-            background: theme.isDark ? '#1a1a2e' : '#f0f0f0',
+            background: theme.posterFallbackBg,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -108,7 +86,7 @@ export function ShowDetailPage() {
           {/* Title + Status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
             <Title level={3} style={{ margin: 0, lineHeight: 1.2 }}>{series.name}</Title>
-            <Tag color={STATUS_COLOR[series.status] ?? 'default'} style={{ fontSize: 12 }}>
+            <Tag color={STATUS_TAG_COLORS[series.status] ?? 'default'} style={{ fontSize: 12 }}>
               {series.status}
             </Tag>
           </div>
@@ -120,7 +98,7 @@ export function ShowDetailPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                background: ratingColor,
+                background: color,
                 color: '#fff',
                 padding: '3px 9px',
                 borderRadius: 6,
@@ -146,7 +124,7 @@ export function ShowDetailPage() {
             </Text>
           )}
 
-          {/* Overview (3-line clamp) */}
+          {/* Overview (4-line clamp) */}
           <p style={{
             margin: '0 0 10px',
             lineHeight: 1.65,
@@ -168,7 +146,7 @@ export function ShowDetailPage() {
 
           {/* Stat cards inline */}
           <Row gutter={[16, 16]}>
-            <Col span={6}>
+            <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
                   title="Episodes Watched"
@@ -179,7 +157,7 @@ export function ShowDetailPage() {
                 />
               </Card>
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
                   title="Watch Time"
@@ -189,7 +167,7 @@ export function ShowDetailPage() {
                 />
               </Card>
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
                   title="Seasons Watched"
@@ -200,7 +178,7 @@ export function ShowDetailPage() {
                 />
               </Card>
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={6}>
               <Card size="small">
                 <Statistic
                   title="First Aired"
@@ -248,7 +226,7 @@ export function ShowDetailPage() {
                 <Text type="secondary" style={{ fontSize: 14 }}>Episode Completion</Text>
                 <Text strong style={{ fontSize: 14 }}>{completion}%</Text>
               </div>
-              <Progress percent={completion} strokeColor={completionColor} showInfo={false} size="small" />
+              <Progress percent={completion} strokeColor={completionColor(completion)} showInfo={false} size="small" />
               <Text type="secondary" style={{ fontSize: 13 }}>
                 {series.episodesWatched} of {series.totalEpisodes} episodes
               </Text>

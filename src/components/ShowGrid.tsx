@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Empty } from 'antd'
 import type { TvSeries } from '../types/series'
 import { ShowCard } from './ShowCard'
@@ -15,7 +15,7 @@ function getColumnCount(width: number): number {
   return 2
 }
 
-export function ShowGrid({ data }: Props) {
+export const ShowGrid = memo(function ShowGrid({ data }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [columnCount, setColumnCount] = useState(6)
 
@@ -50,4 +50,4 @@ export function ShowGrid({ data }: Props) {
       </div>
     </div>
   )
-}
+})

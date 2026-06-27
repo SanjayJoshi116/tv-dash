@@ -1,23 +1,22 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Card, Col, Divider, Progress, Row, Spin, Statistic, Typography } from 'antd'
+import { Card, Col, Divider, Progress, Row, Statistic, Typography } from 'antd'
 import { ClockCircleOutlined, PlayCircleOutlined, StarFilled, StarOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { useTvDataContext } from '../context/TvDataContext'
+import { useTheme } from '../ThemeContext'
 import { avgRating, genreDistribution, statusDistribution, totalHoursWatched } from '../utils/derive'
+import { SECTION_GAP, STATUS_COLORS } from '../constants/ui'
+import { LoadingState } from '../components/LoadingState'
+import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
 
 const STAT_COLORS = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f']
 
-const STATUS_COLORS: Record<string, string> = {
-  'Returning Series': '#52c41a',
-  'Ended': '#8c8c8c',
-  'Canceled': '#ff4d4f',
-}
-
 export function DashboardPage() {
   const { data, loading, error, refetch } = useTvDataContext()
   const navigate = useNavigate()
+  const theme = useTheme()
 
   const totalEpisodes = useMemo(
     () => data.reduce((sum, s) => sum + (s.episodesWatched || 0), 0),
@@ -52,12 +51,8 @@ export function DashboardPage() {
   const statuses = useMemo(() => statusDistribution(data), [data])
   const statusTotal = statuses.reduce((s, d) => s + d.value, 0)
 
-  if (loading) {
-    return <div style={{ textAlign: 'center', padding: 64 }}><Spin size="large" tip="Loading..." /></div>
-  }
-  if (error) {
-    return <Alert type="error" message="Failed to load data" description={error} showIcon action={<Button size="small" onClick={refetch}>Retry</Button>} />
-  }
+  if (loading) return <LoadingState tip="Loading..." />
+  if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
   const statCards = [
     { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: STAT_COLORS[0] },
@@ -69,7 +64,7 @@ export function DashboardPage() {
   return (
     <>
       {/* Stat Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: SECTION_GAP }}>
         {statCards.map(({ title, value, suffix, prefix, color }) => (
           <Col key={title} xs={12} sm={6}>
             <Card size="small" style={{ borderLeft: `4px solid ${color}`, height: '100%' }}>
@@ -82,12 +77,12 @@ export function DashboardPage() {
       {/* Main 2-column layout */}
       <Row gutter={[16, 16]}>
 
-        {/* LEFT: Continue Watching + Top Rated */}
+        {/* LEFT: Continue Watching + Recently Watched */}
         <Col xs={24} lg={16}>
 
           {/* Continue Watching */}
           {inProgress.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: SECTION_GAP }}>
               <Title level={5} style={{ marginBottom: 10 }}>Continue Watching</Title>
               <Row gutter={[10, 10]}>
                 {inProgress.map(series => {
@@ -109,11 +104,11 @@ export function DashboardPage() {
                               style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                             />
                           ) : (
-                            <div style={{ width: 48, height: 72, borderRadius: 4, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>📺</div>
+                            <div style={{ width: 48, height: 72, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>📺</div>
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <Text strong ellipsis style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>{series.name}</Text>
-                            <Progress percent={pct} size="small" strokeColor="#1677ff" showInfo={false} style={{ marginBottom: 3 }} />
+                            <Progress percent={pct} size="small" strokeColor={theme.token.colorPrimary} showInfo={false} style={{ marginBottom: 3 }} />
                             <Text type="secondary" style={{ fontSize: 11 }}>{series.episodesWatched}/{series.totalEpisodes} eps · {pct}%</Text>
                           </div>
                         </div>
@@ -146,7 +141,7 @@ export function DashboardPage() {
                           style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                         />
                       ) : (
-                        <div style={{ width: 48, height: 72, borderRadius: 4, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>📺</div>
+                        <div style={{ width: 48, height: 72, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>📺</div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <Text strong ellipsis style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>{series.name}</Text>
@@ -175,7 +170,7 @@ export function DashboardPage() {
                   <Text style={{ fontSize: 13 }}>{name}</Text>
                   <Text type="secondary" style={{ fontSize: 12 }}>{value}</Text>
                 </div>
-                <Progress percent={Math.round((value / genreMax) * 100)} showInfo={false} size="small" strokeColor="#1677ff" />
+                <Progress percent={Math.round((value / genreMax) * 100)} showInfo={false} size="small" strokeColor={theme.token.colorPrimary} />
               </div>
             ))}
           </Card>
@@ -210,7 +205,7 @@ export function DashboardPage() {
                         style={{ width: 36, height: 54, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                       />
                     ) : (
-                      <div style={{ width: 36, height: 54, borderRadius: 4, background: '#1a1a2e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14 }}>📺</div>
+                      <div style={{ width: 36, height: 54, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14 }}>📺</div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <Text strong ellipsis style={{ display: 'block', fontSize: 13 }}>{series.name}</Text>

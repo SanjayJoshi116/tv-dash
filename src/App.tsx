@@ -9,19 +9,11 @@ import { ShowsPage } from './pages/ShowsPage'
 import { StatisticsPage } from './pages/StatisticsPage'
 import { ShowDetailPage } from './pages/ShowDetailPage'
 import { DEFAULT_THEME_NAME, THEMES } from './themes'
-
-interface SavedSettings {
-  themeName: string
-}
+import { getSettings, saveSetting } from './utils/settings'
 
 function loadThemeName(): string {
-  try {
-    const raw = localStorage.getItem('tvdash-settings')
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<SavedSettings>
-      if (parsed.themeName && THEMES[parsed.themeName]) return parsed.themeName
-    }
-  } catch {}
+  const parsed = getSettings() as { themeName?: string }
+  if (parsed.themeName && THEMES[parsed.themeName]) return parsed.themeName
   return DEFAULT_THEME_NAME
 }
 
@@ -32,11 +24,7 @@ export default function App() {
 
   const handleThemeChange = (name: string) => {
     setActiveThemeName(name)
-    try {
-      const raw = localStorage.getItem('tvdash-settings')
-      const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
-      localStorage.setItem('tvdash-settings', JSON.stringify({ ...existing, themeName: name }))
-    } catch {}
+    saveSetting('themeName', name)
   }
 
   const configTheme = useMemo(() => ({

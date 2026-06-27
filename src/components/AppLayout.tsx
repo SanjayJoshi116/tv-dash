@@ -47,8 +47,6 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
     ? 'Show Detail'
     : (PAGE_TITLES[location.pathname] ?? 'TV Dashboard')
 
-  const borderColor = theme.isDark ? '#2a2a2a' : '#e8e8e8'
-
   return (
     <Layout style={{ height: '100vh' }}>
       <Sider
@@ -56,14 +54,14 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
         collapsed={collapsed}
         onCollapse={handleCollapse}
         theme={theme.isDark ? 'dark' : 'light'}
-        style={{ background: theme.headerBg, borderRight: `1px solid ${borderColor}` }}
+        style={{ background: theme.headerBg, borderRight: `1px solid ${theme.borderColor}` }}
       >
         <div style={{
           height: 64,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderBottom: `1px solid ${borderColor}`,
+          borderBottom: `1px solid ${theme.borderColor}`,
           overflow: 'hidden',
         }}>
           <Title level={4} style={{ margin: 0, color: theme.isDark ? '#fff' : '#000', whiteSpace: 'nowrap' }}>
@@ -87,7 +85,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 16px',
-          borderBottom: `1px solid ${borderColor}`,
+          borderBottom: `1px solid ${theme.borderColor}`,
           flexShrink: 0,
         }}>
           <Title level={4} style={{ margin: 0, color: theme.isDark ? '#fff' : '#000' }}>

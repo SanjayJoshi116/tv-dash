@@ -31,6 +31,7 @@ import {
   watchTimeByDecade,
   watchTimeByYear,
 } from '../utils/derive'
+import { completionColor } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
 
 const { Text } = Typography
@@ -58,13 +59,11 @@ const ScatterTooltipContent = memo(function ScatterTooltipContent({ payload, sty
 
 interface Props {
   data: TvSeries[]
-  onFilter: (field: string, value: string) => void
-  activeFilter: { field: string; value: string } | null
   chartsOpen: boolean
   onChartsOpenChange: (open: boolean) => void
 }
 
-export const ChartsSection = memo(function ChartsSection({ data, onFilter, activeFilter, chartsOpen, onChartsOpenChange }: Props) {
+export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onChartsOpenChange }: Props) {
   const theme = useTheme()
   const screens = Grid.useBreakpoint()
 
@@ -101,16 +100,6 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
 
   const scatterTooltipEl = useMemo(() => <ScatterTooltipContent style={tooltipBg} />, [tooltipBg])
 
-  const handlePieClick = useCallback((field: string, value: string) => {
-    if (activeFilter?.field === field && activeFilter?.value === value) onFilter('', '')
-    else onFilter(field, value)
-  }, [activeFilter, onFilter])
-
-  const handleBarClick = useCallback((field: string, value: string) => {
-    if (activeFilter?.field === field && activeFilter?.value === value) onFilter('', '')
-    else onFilter(field, value)
-  }, [activeFilter, onFilter])
-
   const handleCollapseChange = useCallback((keys: string | string[]) => {
     const arr = Array.isArray(keys) ? keys : [keys]
     onChartsOpenChange(arr.includes('1'))
@@ -128,7 +117,7 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
       >
         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
         <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
-        <YAxis type="category" dataKey="name" width={120} tick={{ fill: textColor, fontSize: 10 }} />
+        <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
         <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
         <Bar dataKey="count" name="Shows" fill={color} radius={[0, 3, 3, 0]} />
       </BarChart>
@@ -148,8 +137,8 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
 
             {/* Top Genres */}
             <Col xs={24} md={12}>
-              <Card title="Top Genres" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Click to filter</Text>}>
-                <ResponsiveContainer width="100%" height={chartHeight} aria-label="Top genres pie chart — click a slice to filter shows by genre">
+              <Card title="Top Genres" size="small">
+                <ResponsiveContainer width="100%" height={chartHeight} aria-label="Top genres pie chart">
                   <PieChart>
                     <Pie
                       data={genres}
@@ -160,15 +149,9 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
                       outerRadius={screens.md ? 95 : 75}
                       label={screens.md ? genrePieLabel : false}
                       labelLine={false}
-                      onClick={(entry) => handlePieClick('genres', entry.name)}
-                      style={{ cursor: 'pointer' }}
                     >
-                      {genres.map((entry, i) => (
-                        <Cell
-                          key={i}
-                          fill={chartColors[i % chartColors.length]}
-                          opacity={activeFilter?.field === 'genres' && activeFilter.value !== entry.name ? 0.35 : 1}
-                        />
+                      {genres.map((_, i) => (
+                        <Cell key={i} fill={chartColors[i % chartColors.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(v: number, name: string) => [`${v} shows`, name]} />
@@ -180,8 +163,8 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
 
             {/* Status Breakdown */}
             <Col xs={24} md={12}>
-              <Card title="Status Breakdown" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Click to filter</Text>}>
-                <ResponsiveContainer width="100%" height={chartHeight} aria-label="Show status breakdown donut chart — click a slice to filter by status">
+              <Card title="Status Breakdown" size="small">
+                <ResponsiveContainer width="100%" height={chartHeight} aria-label="Show status breakdown donut chart">
                   <PieChart>
                     <Pie
                       data={statuses}
@@ -193,15 +176,9 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
                       outerRadius={screens.md ? 95 : 75}
                       label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                       labelLine={false}
-                      onClick={(entry) => handlePieClick('status', entry.name)}
-                      style={{ cursor: 'pointer' }}
                     >
-                      {statuses.map((entry, i) => (
-                        <Cell
-                          key={i}
-                          fill={chartColors[i % chartColors.length]}
-                          opacity={activeFilter?.field === 'status' && activeFilter.value !== entry.name ? 0.35 : 1}
-                        />
+                      {statuses.map((_, i) => (
+                        <Cell key={i} fill={chartColors[i % chartColors.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(v: number, name: string) => [`${v} shows`, name]} />
@@ -243,34 +220,21 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
 
             {/* Top Networks */}
             <Col xs={24} md={12}>
-              <Card title="Top Networks" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Click to filter</Text>}>
-                <ResponsiveContainer width="100%" height={barHeight} aria-label="Top networks bar chart — click a bar to filter shows by network">
+              <Card title="Top Networks" size="small">
+                <ResponsiveContainer width="100%" height={barHeight} aria-label="Top networks bar chart">
                   <BarChart
                     data={networks.map(n => ({
                       name: n.name.length > 20 ? n.name.slice(0, 18) + '…' : n.name,
-                      fullName: n.name,
                       value: n.value,
                     }))}
                     layout="vertical"
                     margin={{ top: 5, right: 10, bottom: 5, left: 0 }}
-                    onClick={(e) => {
-                      if (e?.activePayload?.[0]) handleBarClick('networks', e.activePayload[0].payload.fullName)
-                    }}
-                    style={{ cursor: 'pointer' }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 10 }} />
-                    <Tooltip formatter={(v: number, _name: string, props: { payload?: { fullName?: string } }) => [`${v} shows`, props?.payload?.fullName ?? '']} />
-                    <Bar dataKey="value" name="Shows" fill={chartColors[2]} radius={[0, 3, 3, 0]}>
-                      {networks.map((entry, i) => (
-                        <Cell
-                          key={i}
-                          fill={chartColors[2]}
-                          opacity={activeFilter?.field === 'networks' && activeFilter.value !== entry.name ? 0.35 : 1}
-                        />
-                      ))}
-                    </Bar>
+                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
+                    <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
+                    <Bar dataKey="value" name="Shows" fill={chartColors[2]} radius={[0, 3, 3, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Card>
@@ -290,7 +254,7 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} tickFormatter={v => `${Math.round(v / 60)}h`} />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fill: textColor, fontSize: 10 }} />
+                    <YAxis type="category" dataKey="name" width={100} tick={{ fill: textColor, fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => [`${Math.round(v / 60)}h ${v % 60}m`, 'Watch time']} />
                     <Bar dataKey="mins" name="Watch time" fill={chartColors[4]} radius={[0, 3, 3, 0]} />
                   </BarChart>
@@ -302,7 +266,7 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
             {/* Watch Time by Decade */}
             <Col xs={24}>
               <Card title="Watch Time by Decade" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Hours watched, grouped by show era</Text>}>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <AreaChart data={decadeData} margin={{ top: 10, right: 20, bottom: 5, left: 0 }}>
                     <defs>
                       <linearGradient id="decadeGradient" x1="0" y1="0" x2="0" y2="1">
@@ -311,7 +275,7 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis dataKey="decade" tick={{ fill: textColor, fontSize: 12 }} />
+                    <XAxis dataKey="decade" tick={{ fill: textColor, fontSize: 11 }} />
                     <YAxis tick={{ fill: textColor, fontSize: 11 }} tickFormatter={v => `${v}h`} />
                     <Tooltip formatter={(v: number) => [`${v}h`, 'Hours watched']} />
                     <Area
@@ -334,7 +298,7 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
                 <ResponsiveContainer width="100%" height={barHeight}>
                   <BarChart data={yearWatchData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis dataKey="year" tick={{ fill: textColor, fontSize: 10 }} interval="preserveStartEnd" />
+                    <XAxis dataKey="year" tick={{ fill: textColor, fontSize: 11 }} interval="preserveStartEnd" />
                     <YAxis tick={{ fill: textColor, fontSize: 11 }} tickFormatter={v => `${v}h`} />
                     <Tooltip formatter={(v: number) => [`${v}h`, 'Hours watched']} />
                     <Bar dataKey="hours" name="Hours" fill={chartColors[3]} radius={[3, 3, 0, 0]} />
@@ -385,11 +349,11 @@ export const ChartsSection = memo(function ChartsSection({ data, onFilter, activ
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" domain={[0, 100]} tick={{ fill: textColor, fontSize: 11 }} tickFormatter={v => `${v}%`} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 10 }} />
+                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => [`${v}%`, 'Completion']} />
                     <Bar dataKey="pct" name="Completion" radius={[0, 3, 3, 0]}>
                       {genreCompletion.map((entry, i) => (
-                        <Cell key={i} fill={entry.pct >= 75 ? '#10b981' : entry.pct >= 40 ? '#f59e0b' : '#ef4444'} />
+                        <Cell key={i} fill={completionColor(entry.pct)} />
                       ))}
                     </Bar>
                   </BarChart>

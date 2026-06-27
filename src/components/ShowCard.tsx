@@ -3,23 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Card, Tag, Typography } from 'antd'
 import { StarFilled } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
+import { GENRE_COLORS, ratingColor } from '../constants/ui'
+import { useTheme } from '../ThemeContext'
 
 const { Text, Title } = Typography
-
-const GENRE_COLORS: Record<string, string> = {
-  Animation: 'purple',
-  Action: 'red',
-  'Action & Adventure': 'red',
-  Comedy: 'gold',
-  Drama: 'blue',
-  Fantasy: 'geekblue',
-  'Sci-Fi & Fantasy': 'geekblue',
-  Mystery: 'cyan',
-  Thriller: 'volcano',
-  Romance: 'pink',
-  Horror: 'magenta',
-  Adventure: 'orange',
-}
 
 interface Props {
   series: TvSeries
@@ -27,8 +14,8 @@ interface Props {
 
 export const ShowCard = memo(function ShowCard({ series }: Props) {
   const navigate = useNavigate()
-  const ratingColor =
-    series.voteAverage >= 8 ? '#52c41a' : series.voteAverage >= 6 ? '#faad14' : '#f5222d'
+  const theme = useTheme()
+  const color = ratingColor(series.voteAverage)
 
   const handleSelect = () => navigate(`/shows/${series.tvId}`)
 
@@ -43,7 +30,7 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
       styles={{ body: { padding: 12, display: 'flex', flexDirection: 'column', flex: 1 } }}
       cover={
-        <div style={{ position: 'relative', paddingTop: '150%', overflow: 'hidden', background: '#1a1a2e' }}>
+        <div style={{ position: 'relative', paddingTop: '150%', overflow: 'hidden', background: theme.posterFallbackBg }}>
           {series.posterUrl ? (
             <img
               src={series.posterUrl}
@@ -59,7 +46,7 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
           {series.voteAverage > 0 && (
             <Badge
               count={
-                <span style={{ background: ratingColor, color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 12, fontWeight: 700 }}>
+                <span style={{ background: color, color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 12, fontWeight: 700 }}>
                   <StarFilled style={{ marginRight: 3 }} />{series.voteAverage.toFixed(1)}
                 </span>
               }
