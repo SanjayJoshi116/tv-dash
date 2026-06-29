@@ -1,0 +1,95 @@
+TV Dashboard — Feature List
+Version 0.2.0
+
+═══════════════════════════════════════
+DASHBOARD PAGE
+═══════════════════════════════════════
+- Stats overview: shows watched, hours/minutes/years watched, avg rating,
+  unique genres, completion rate, episodes watched, top genre, top network
+- Continue Watching: shows with partial completion (< 100%)
+- Recently Watched: last 3 entries from CSV (row-order based)
+
+═══════════════════════════════════════
+SHOWS PAGE
+═══════════════════════════════════════
+- Responsive poster grid: 2–8 columns based on viewport width
+- Default sort: Recently Watched (CSV row order, newest first)
+- Sort options: Recently Watched, Rating, Popularity, Year, Watch Time, Name A–Z
+- Search: matches title, actor/actress, keyword, genre, creator, network
+- Filter by genre (multi-select) and status
+- All filters + sort persist across sessions via localStorage
+- Pagination with configurable page size (12/24/48/96)
+- Show cards: poster image, rating badge, status indicator, genre tags
+
+═══════════════════════════════════════
+SHOW DETAIL PAGE
+═══════════════════════════════════════
+- Hero section: poster, title, status tag, rating badge, year, age rating, language
+- Tagline display
+- Overview with 4-line clamp + expand/collapse toggle
+- Genre tags
+- Stat cards: episodes watched, total watch time, seasons watched, first air year
+- Show Details card: seasons, total episodes, episode runtime, popularity,
+  vote count, first air date (formatted), last air date (formatted),
+  networks, creators
+- Watch History card: episode completion progress bar, season-by-season
+  tracker with check/clock icons (watched / not watched)
+- Cast: top 15 actors with overflow count
+- Keywords: up to 20 tags
+- Poster fallback: styled placeholder with camera icon
+
+═══════════════════════════════════════
+STATISTICS PAGE
+═══════════════════════════════════════
+Stats Bar (10 cards):
+- Shows Watched, Avg Rating, Unique Genres, Completion Rate,
+  Episodes Watched, Top Genre, Top Network,
+  Hours Watched, Minutes Watched, Years Watched
+
+14 Charts (always visible):
+1.  Top Genres — pie chart
+2.  Status Breakdown — donut chart
+3.  Language Breakdown — horizontal bar
+4.  Age Rating Distribution — vertical bar
+5.  Rating Distribution — vertical bar (0–10 buckets)
+6.  Shows by First Air Year — vertical bar
+7.  Top Networks — horizontal bar
+8.  Top 10 by Watch Time — horizontal bar
+9.  Watch Time by Decade — area chart with gradient fill
+10. Watch Time by Release Year — vertical bar
+11. Rating vs Popularity — scatter plot
+12. Completion Rate by Genre — horizontal bar (color-coded)
+13. Seasons Watched Depth — vertical bar (1/2/3/4+ seasons)
+14. Top Actors & Creators — tabbed horizontal bar
+
+═══════════════════════════════════════
+THEMES
+═══════════════════════════════════════
+- Default Dark — indigo/purple on near-black
+- Default Light — indigo on white, Tailwind-600 chart palette, pure black text
+- Dracula — purple/pink on #282a36
+- Theme persists across sessions via localStorage
+- All theme colors via Theme object — no hardcoded dark/light values
+
+═══════════════════════════════════════
+CSV GENERATOR (series-search.py)
+═══════════════════════════════════════
+- Tkinter desktop app, queries TMDB API
+- Search by show name, paginated results table with sortable columns
+- Season selection panel (new seasons only, shows already-saved seasons)
+- Saves: metadata, cast (top 5), keywords, age rating, poster URL,
+  seasons watched, episodes watched, total runtime
+- Re-adding a show updates existing row (no duplicates)
+- Outputs tv_series.csv — place in public/ to load in dashboard
+
+═══════════════════════════════════════
+TECHNICAL
+═══════════════════════════════════════
+- Static SPA — no backend, no build-time data
+- CSV fetched at runtime via fetch() + PapaParse
+- 100% React inline styles (no CSS files in src/)
+- All Ant Design styling via ConfigProvider tokens
+- All localStorage via settings.ts (tvdash-settings key)
+- Filters, sort, page size, theme persist across sessions
+- React.memo on ShowCard, ShowGrid, StatsBar, ChartsSection
+- useDeferredValue for search input (non-blocking filter)

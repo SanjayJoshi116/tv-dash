@@ -2,7 +2,7 @@ import { Col, Input, Row, Select } from 'antd'
 import type { TvSeries } from '../types/series'
 import { uniqueGenres } from '../utils/derive'
 
-export type SortKey = 'voteAverage' | 'popularity' | 'firstAirYear' | 'totalRuntimeWatched' | 'name'
+export type SortKey = 'recentFirst' | 'voteAverage' | 'popularity' | 'firstAirYear' | 'totalRuntimeWatched' | 'name'
 
 export interface Filters {
   search: string
@@ -26,7 +26,7 @@ export function FilterBar({ data, filters, onChange }: Props) {
     <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
       <Col xs={24} sm={8}>
         <Input.Search
-          placeholder="Search shows..."
+          placeholder="Search by title, person, genre, keyword…"
           aria-label="Search shows"
           value={filters.search}
           onChange={e => onChange({ ...filters, search: e.target.value })}
@@ -64,6 +64,7 @@ export function FilterBar({ data, filters, onChange }: Props) {
           value={filters.sortBy}
           onChange={sortBy => onChange({ ...filters, sortBy })}
           options={[
+            { label: 'Recently Watched', value: 'recentFirst' },
             { label: 'Rating ↓', value: 'voteAverage' },
             { label: 'Popularity ↓', value: 'popularity' },
             { label: 'Year ↓', value: 'firstAirYear' },

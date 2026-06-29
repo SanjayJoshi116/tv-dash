@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.2.0] — 2026-06-29
+
+### Statistics Page
+
+- Removed `Collapse` wrapper — charts always visible on Statistics page
+- `StatsBar` reordered: Hours/Minutes/Years Watched grouped at positions 7–9
+- Added 3 new charts: Language Breakdown (horizontal bar), Age Rating Distribution (vertical bar), Seasons Watched Depth (vertical bar)
+- Added 3 derive functions: `languageDistribution`, `ageRatingDistribution`, `seasonsWatchedDepth`
+- Pie chart legends now fade in via `onAnimationEnd` + CSS opacity transition — no longer appear before slices animate
+
+### Shows Page
+
+- Default sort changed to **Recently Watched** (CSV row order, newest first); new `recentFirst` SortKey added to `FilterBar`
+- Search extended to match genres, creators, and networks (previously only name, actors, keywords)
+- Search placeholder updated: "Search by title, person, genre, keyword…"
+- Fixed card resize bug: `ShowGrid` replaced `ResizeObserver` with `Grid.useBreakpoint()` — eliminates layout-shift-induced column count collapse
+- Fixed scrollbar layout shift: `AppLayout` Content `overflow: auto` → `overflowY: scroll` (stable gutter width)
+
+### Show Detail Page
+
+- Overview: 4-line clamp with expand/collapse toggle (rendered when overview > 200 chars)
+- Show Details card: added Vote Count and First Air Date (full formatted, e.g. "Sep 17, 2021")
+- Last Air Date now formatted consistently (was raw ISO string)
+- Poster fallback: replaced 📺 emoji with styled `VideoCameraOutlined` placeholder, `aspectRatio: 2/3`
+- Seasons tracker tags: `CheckCircleOutlined` (watched) / `ClockCircleOutlined` (not watched)
+- Spacing standardized with `SECTION_GAP` throughout the page
+
+### Themes
+
+- Removed AMOLED and Catppuccin — 3 themes remain: **Default Dark**, **Default Light**, **Dracula**
+- Default Light: chart colors replaced with Tailwind-600 level palette for better contrast on white
+- Default Light: added `colorTextBase: '#000000'` for darker text rendering
+- Default Light: tighter `borderColor` (#d9d9d9), crisper `chartGrid` (#e0e0e0), fully black `chartText`
+- `Theme.token` type extended with optional `colorTextBase`
+
+### CSV Generator
+
+- Added `series-search.py` — Tkinter desktop app that queries TMDB API to build/maintain `tv_series.csv`
+- `README.md` updated with "Generating the CSV" section: setup, usage workflow, field documentation
+- `features.txt` created with full feature inventory
+- `.gitignore` updated: added `__pycache__/`, `*.pyc`, `*.pyo`, `.claude/memory/`
+
+---
+
 ## [0.1.0] — 2026-06-27
 
 ### Architecture

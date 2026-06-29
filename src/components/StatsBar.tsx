@@ -45,13 +45,13 @@ export const StatsBar = memo(function StatsBar({ data }: Props) {
 
   const cards = [
     <Statistic title="Shows Watched" value={data.length} prefix={<VideoCameraOutlined />} />,
-    <Statistic title="Hours Watched" value={stats.hours} suffix="h" prefix={<ClockCircleOutlined />} />,
     <Statistic title="Avg Rating" value={stats.rating} prefix={<StarOutlined />} suffix="/ 10" />,
     <Statistic title="Unique Genres" value={stats.genres} prefix={<TagsOutlined />} />,
     <Statistic title="Completion Rate" value={stats.completion} suffix="%" prefix={<TrophyOutlined />} />,
     <Statistic title="Episodes Watched" value={stats.totalEpisodes.toLocaleString()} prefix={<PlayCircleOutlined />} />,
     <Statistic title="Top Genre" value={stats.topGenre} prefix={<FireOutlined />} />,
     <Statistic title="Top Network" value={stats.topNetwork} prefix={<WifiOutlined />} />,
+    <Statistic title="Hours Watched" value={stats.hours} suffix="h" prefix={<ClockCircleOutlined />} />,
     <Statistic title="Minutes Watched" value={stats.minutes} suffix="m" prefix={<ClockCircleOutlined />} />,
     <Statistic title="Years Watched" value={stats.years} precision={2} suffix="y" prefix={<ClockCircleOutlined />} />,
   ]

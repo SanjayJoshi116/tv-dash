@@ -6,12 +6,12 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 
 ## Features
 
-- **Stats bar** — total shows, hours watched, average rating, genres, completion rate, and more
-- **Analytics** — collapsible charts: genre distribution, status breakdown, rating histogram, shows by year, top 10 by watch time, watch time by decade/year, completion by genre, rating vs popularity scatter, top actors/creators
-- **Filter & search** — search by name/actor/keyword, filter by genre and status, sort by rating/popularity/year/watch time; filters persist across sessions
+- **Stats bar** — total shows, hours/minutes/years watched, average rating, genres, completion rate, top genre, top network, episodes watched
+- **Analytics** — 14 charts always visible: genre distribution, status breakdown, language breakdown, age rating distribution, rating histogram, shows by year, top networks, top 10 by watch time, watch time by decade/year, rating vs popularity scatter, completion by genre, seasons watched depth, top actors/creators
+- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions
 - **Poster grid** — responsive card grid (2–8 columns) with TMDB poster images, rating badges, genre tags, and pagination
-- **Show detail** — full page per show: overview, cast, networks, creators, keywords, watch history, season tracker
-- **5 themes** — Default Dark, Default Light, AMOLED, Dracula, Catppuccin; persists across sessions
+- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker
+- **3 themes** — Default Dark, Default Light, Dracula; persists across sessions
 
 ## Getting Started
 
@@ -67,6 +67,34 @@ Place your `tv_series.csv` in the `public/` directory. The app fetches it at run
 | Episodes Watched | number | |
 | Total Runtime Watched (min) | number | |
 
+## Generating the CSV
+
+`series-search.py` is a Tkinter desktop app that builds and maintains `tv_series.csv` by querying the [TMDB API](https://www.themoviedb.org/documentation/api).
+
+**Requirements:**
+
+```bash
+pip install requests
+```
+
+**Run:**
+
+```bash
+python series-search.py
+```
+
+**How it works:**
+
+1. Search a TV series by name — results pulled from TMDB
+2. Select a show from the results table
+3. Pick which seasons you watched in the season panel
+4. Click **Save to CSV** — appends a new row (or updates an existing one) in `tv_series.csv`
+
+**Notes:**
+- Re-adding a show with new seasons updates the existing row rather than duplicating it.
+- Last row = most recently watched — row order is watch order (no timestamp field).
+- Move the output `tv_series.csv` to `public/` before running the dashboard.
+
 ## Stack
 
 - [React 18](https://react.dev) + [TypeScript](https://www.typescriptlang.org)
@@ -82,7 +110,7 @@ Place your `tv_series.csv` in the `public/` directory. The app fetches it at run
 src/
 ├── constants/ui.ts          # Shared colors, spacing, and color functions
 ├── types/series.ts          # TvSeries interface
-├── themes.ts                # 5 theme definitions + Theme type
+├── themes.ts                # 3 theme definitions + Theme type
 ├── ThemeContext.tsx          # useTheme() hook
 ├── context/TvDataContext.tsx # CSV data context
 ├── hooks/useTvData.ts        # CSV fetch + parse hook
@@ -91,7 +119,7 @@ src/
 │   └── settings.ts          # localStorage persistence utility
 ├── components/
 │   ├── AppLayout.tsx        # Sider + Header + Content shell
-│   ├── ChartsSection.tsx    # All Recharts charts in a Collapse panel
+│   ├── ChartsSection.tsx    # All Recharts charts (always visible, no collapse)
 │   ├── ErrorState.tsx       # Shared error alert with retry
 │   ├── FilterBar.tsx        # Search, genre, status, sort controls
 │   ├── LoadingState.tsx     # Shared loading spinner

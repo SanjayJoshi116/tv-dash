@@ -7,7 +7,7 @@ import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 import { getSettings, saveSetting } from '../utils/settings'
 
-const DEFAULT_FILTERS: Filters = { search: '', genres: [], status: '', sortBy: 'voteAverage' }
+const DEFAULT_FILTERS: Filters = { search: '', genres: [], status: '', sortBy: 'recentFirst' }
 const DEFAULT_PAGE_SIZE = 24
 
 function loadFilters(): Filters {
@@ -41,7 +41,10 @@ export function ShowsPage() {
       result = result.filter(s =>
         s.name.toLowerCase().includes(q) ||
         s.actors.some(a => a.toLowerCase().includes(q)) ||
-        s.keywords.some(k => k.toLowerCase().includes(q))
+        s.keywords.some(k => k.toLowerCase().includes(q)) ||
+        s.genres.some(g => g.toLowerCase().includes(q)) ||
+        s.creators.some(c => c.toLowerCase().includes(q)) ||
+        s.networks.some(n => n.toLowerCase().includes(q))
       )
     }
 
@@ -54,10 +57,14 @@ export function ShowsPage() {
     }
 
     const key = deferredFilters.sortBy
-    result.sort((a, b) => {
-      if (key === 'name') return a.name.localeCompare(b.name)
-      return (b[key] as number) - (a[key] as number)
-    })
+    if (key === 'recentFirst') {
+      result.reverse()
+    } else {
+      result.sort((a, b) => {
+        if (key === 'name') return a.name.localeCompare(b.name)
+        return (b[key] as number) - (a[key] as number)
+      })
+    }
 
     return result
   }, [data, deferredFilters])

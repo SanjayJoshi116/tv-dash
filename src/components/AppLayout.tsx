@@ -94,7 +94,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           <ThemeToggle value={activeThemeName} onChange={onThemeChange} />
         </Header>
 
-        <Content style={{ background: theme.contentBg, padding: screens.sm ? '24px' : '12px', overflow: 'auto', flex: 1 }}>
+        <Content style={{ background: theme.contentBg, padding: screens.sm ? '24px' : '12px', overflowY: 'scroll', flex: 1 }}>
           <Outlet />
         </Content>
       </Layout>

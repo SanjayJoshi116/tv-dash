@@ -166,3 +166,49 @@ export function topCreators(data: TvSeries[], n = 10): { name: string; count: nu
     .sort((a, b) => b.count - a.count)
     .slice(0, n)
 }
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English', ja: 'Japanese', ko: 'Korean', fr: 'French',
+  de: 'German', es: 'Spanish', zh: 'Chinese', it: 'Italian',
+  pt: 'Portuguese', hi: 'Hindi',
+}
+
+export function languageDistribution(data: TvSeries[], n = 10): { name: string; value: number }[] {
+  const counts: Record<string, number> = {}
+  data.forEach(s => {
+    if (!s.language) return
+    const name = LANGUAGE_NAMES[s.language] ?? s.language.toUpperCase()
+    counts[name] = (counts[name] || 0) + 1
+  })
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, n)
+}
+
+export function ageRatingDistribution(data: TvSeries[]): { name: string; value: number }[] {
+  const counts: Record<string, number> = {}
+  data.forEach(s => {
+    if (!s.ageRating || s.ageRating === 'N/A') return
+    counts[s.ageRating] = (counts[s.ageRating] || 0) + 1
+  })
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+}
+
+export function seasonsWatchedDepth(data: TvSeries[]): { depth: string; count: number }[] {
+  const buckets = [
+    { depth: '1 season',   count: 0 },
+    { depth: '2 seasons',  count: 0 },
+    { depth: '3 seasons',  count: 0 },
+    { depth: '4+ seasons', count: 0 },
+  ]
+  data.forEach(s => {
+    const n = s.seasonsWatched.length
+    if (n === 0) return
+    if (n <= 3) buckets[n - 1].count++
+    else buckets[3].count++
+  })
+  return buckets
+}

@@ -21,10 +21,11 @@ Ant Design component styling is done via `ConfigProvider` + design tokens in `sr
 
 ## Theme System
 
-`src/themes.ts` defines the `Theme` type and 5 theme objects. Every color that varies by theme must come from the `Theme` object — never hardcode dark/light-specific colors.
+`src/themes.ts` defines the `Theme` type and 3 theme objects: **Default Dark**, **Default Light**, **Dracula**. Every color that varies by theme must come from the `Theme` object — never hardcode dark/light-specific colors.
 
 Key `Theme` fields:
 - `token.colorPrimary` — Ant Design primary color; use for `strokeColor` on `Progress`
+- `token.colorTextBase?` — optional; set on Default Light to `#000000` for darker text
 - `posterFallbackBg` — background for shows without a poster image
 - `borderColor` — sidebar/header borders
 - `chartColors[]` — 10-color array for Recharts
@@ -54,13 +55,20 @@ Exception: sidebar collapsed state uses a separate `tvdash-sidebar` key directly
 - **Spacing:** use `SECTION_GAP` (24px) for top-level section `marginBottom`. Inner card gutters use `[10, 10]`.
 - **Row gutters:** standard outer gutter is `[16, 16]`.
 - **Chart axis ticks:** `fontSize: 11` everywhere.
-- **Recharts charts:** all derive calls in `ChartsSection` are `useMemo`-ized.
+- **Recharts charts:** all derive calls in `ChartsSection` are `useMemo`-ized. Charts are always visible (no Collapse wrapper).
 - **React.memo:** applied to `ShowCard`, `ShowGrid`, `StatsBar`, `ChartsSection`.
+- **ShowGrid columns:** uses `Grid.useBreakpoint()` (viewport breakpoints) — not ResizeObserver. Avoids layout-shift race conditions.
 - **Loading/error state:** use `<LoadingState />` and `<ErrorState />` shared components — never inline Spin/Alert patterns.
 
 ## CSV Row Order
 
-Last rows in the CSV = most recently watched. No timestamp field exists. "Recently Watched" section uses `.reverse().slice(0, 3)`.
+Last rows in the CSV = most recently watched. No timestamp field exists. "Recently Watched" section uses `.reverse().slice(0, 3)`. Shows page default sort is `recentFirst` which reverses the data array — same principle.
+
+## derive.ts Functions Added in v0.2
+
+- `languageDistribution(data, n)` — count shows by `language`, maps ISO codes to display names via `LANGUAGE_NAMES` constant
+- `ageRatingDistribution(data)` — count shows by `ageRating`, skips `N/A`
+- `seasonsWatchedDepth(data)` — fixed-order buckets: 1/2/3/4+ seasons watched; uses array literal to guarantee axis order
 
 ## Tests
 

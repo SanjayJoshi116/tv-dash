@@ -1,14 +1,28 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Descriptions, Grid, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
-import { ArrowLeftOutlined, CalendarOutlined, ClockCircleOutlined, PlayCircleOutlined, StarFilled, TrophyOutlined } from '@ant-design/icons'
+import {
+  ArrowLeftOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  PlayCircleOutlined,
+  StarFilled,
+  TrophyOutlined,
+  VideoCameraOutlined,
+} from '@ant-design/icons'
 import { useTvDataContext } from '../context/TvDataContext'
 import { formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
-import { GENRE_COLORS, STATUS_TAG_COLORS, completionColor, ratingColor } from '../constants/ui'
+import { GENRE_COLORS, SECTION_GAP, STATUS_TAG_COLORS, completionColor, ratingColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
+
+const formatDate = (iso: string) => iso
+  ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  : '–'
 
 export function ShowDetailPage() {
   const { id } = useParams()
@@ -16,6 +30,7 @@ export function ShowDetailPage() {
   const { data, loading, error, refetch } = useTvDataContext()
   const screens = Grid.useBreakpoint()
   const theme = useTheme()
+  const [overviewExpanded, setOverviewExpanded] = useState(false)
 
   if (loading) return <LoadingState tip="Loading..." />
   if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
@@ -39,7 +54,7 @@ export function ShowDetailPage() {
       <Button
         icon={<ArrowLeftOutlined />}
         onClick={() => navigate(-1)}
-        style={{ marginBottom: 16 }}
+        style={{ marginBottom: SECTION_GAP / 2 }}
       >
         Back
       </Button>
@@ -48,7 +63,7 @@ export function ShowDetailPage() {
       <div style={{
         display: 'flex',
         gap: 24,
-        marginBottom: 12,
+        marginBottom: SECTION_GAP,
         flexDirection: screens.md ? 'row' : 'column',
         alignItems: 'flex-start',
       }}>
@@ -69,16 +84,21 @@ export function ShowDetailPage() {
           <div style={{
             width: screens.md ? 200 : '100%',
             maxWidth: 280,
-            height: 300,
+            aspectRatio: '2/3',
             borderRadius: 12,
             background: theme.posterFallbackBg,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 64,
+            gap: 12,
             flexShrink: 0,
+            border: `1px solid ${theme.borderColor}`,
           }}>
-            📺
+            <VideoCameraOutlined style={{ fontSize: 48, opacity: 0.4 }} />
+            <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', padding: '0 12px' }}>
+              No Poster
+            </Text>
           </div>
         )}
 
@@ -124,18 +144,31 @@ export function ShowDetailPage() {
             </Text>
           )}
 
-          {/* Overview (4-line clamp) */}
+          {/* Overview with expand/collapse */}
           <p style={{
-            margin: '0 0 10px',
+            margin: '0 0 4px',
             lineHeight: 1.65,
-            overflow: 'hidden',
-            display: '-webkit-box',
-            WebkitLineClamp: 4,
-            WebkitBoxOrient: 'vertical',
             fontSize: 14,
+            ...(overviewExpanded ? {} : {
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: 'vertical',
+            }),
           }}>
             {series.overview}
           </p>
+          {series.overview.length > 200 && (
+            <Button
+              type="link"
+              size="small"
+              onClick={() => setOverviewExpanded(e => !e)}
+              style={{ padding: '0 0 10px', height: 'auto' }}
+            >
+              {overviewExpanded ? 'Show less' : 'Show more'}
+            </Button>
+          )}
+          {series.overview.length <= 200 && <div style={{ marginBottom: 10 }} />}
 
           {/* Genres */}
           <Space wrap size={6} style={{ marginBottom: 14 }}>
@@ -194,7 +227,7 @@ export function ShowDetailPage() {
       </div>
 
       {/* Show Details + Watch History */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: SECTION_GAP }}>
         <Col xs={24} md={12}>
           <Card title="Show Details" size="small" style={{ height: '100%' }}>
             <Descriptions column={2}>
@@ -204,7 +237,13 @@ export function ShowDetailPage() {
                 {series.episodeRuntime ? `${series.episodeRuntime} min` : '–'}
               </Descriptions.Item>
               <Descriptions.Item label="Popularity">{series.popularity.toFixed(1)}</Descriptions.Item>
-              <Descriptions.Item label="Last Air Date">{series.lastEpisodeAirDate || '–'}</Descriptions.Item>
+              {series.voteCount > 0 && (
+                <Descriptions.Item label="Vote Count">
+                  {series.voteCount.toLocaleString()}
+                </Descriptions.Item>
+              )}
+              <Descriptions.Item label="First Air Date">{formatDate(series.firstAirDate)}</Descriptions.Item>
+              <Descriptions.Item label="Last Air Date">{formatDate(series.lastEpisodeAirDate)}</Descriptions.Item>
               {series.networks.length > 0 && (
                 <Descriptions.Item label="Networks">
                   <Space wrap size={4}>{series.networks.map(n => <Tag key={n}>{n}</Tag>)}</Space>
@@ -242,6 +281,7 @@ export function ShowDetailPage() {
                       <Tag
                         key={s}
                         color={watched ? 'green' : 'default'}
+                        icon={watched ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
                         style={{ borderStyle: watched ? 'solid' : 'dashed' }}
                       >
                         S{s}

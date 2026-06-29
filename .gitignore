@@ -11,3 +11,7 @@ Thumbs.db
 *.log
 .claude/plans/
 .claude/sessions/
+.claude/memory/
+__pycache__/
+*.pyc
+*.pyo

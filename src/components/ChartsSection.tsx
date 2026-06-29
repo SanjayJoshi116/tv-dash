@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo } from 'react'
-import { Card, Col, Collapse, Grid, Row, Tabs, Typography } from 'antd'
+import { memo, useCallback, useMemo, useState } from 'react'
+import { Card, Col, Grid, Row, Tabs, Typography } from 'antd'
 import {
   Area,
   AreaChart,
@@ -19,10 +19,13 @@ import {
 } from 'recharts'
 import type { TvSeries } from '../types/series'
 import {
+  ageRatingDistribution,
   completionByGenre,
   genreDistribution,
+  languageDistribution,
   networkDistribution,
   ratingBuckets,
+  seasonsWatchedDepth,
   showsByYear,
   statusDistribution,
   topActors,
@@ -59,11 +62,9 @@ const ScatterTooltipContent = memo(function ScatterTooltipContent({ payload, sty
 
 interface Props {
   data: TvSeries[]
-  chartsOpen: boolean
-  onChartsOpenChange: (open: boolean) => void
 }
 
-export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onChartsOpenChange }: Props) {
+export const ChartsSection = memo(function ChartsSection({ data }: Props) {
   const theme = useTheme()
   const screens = Grid.useBreakpoint()
 
@@ -71,6 +72,8 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
 
   const chartHeight = screens.md ? 280 : 220
   const barHeight = screens.md ? 260 : 200
+  const [genresAnimDone, setGenresAnimDone] = useState(false)
+  const [statusAnimDone, setStatusAnimDone] = useState(false)
 
   // All derive calls memoized on data — data is stable after CSV load, so these run once.
   const genres = useMemo(() => genreDistribution(data).slice(0, 10), [data])
@@ -84,6 +87,9 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
   const genreCompletion = useMemo(() => completionByGenre(data), [data])
   const actorsData = useMemo(() => topActors(data, 10), [data])
   const creatorsData = useMemo(() => topCreators(data, 10), [data])
+  const languages = useMemo(() => languageDistribution(data), [data])
+  const ageRatings = useMemo(() => ageRatingDistribution(data), [data])
+  const depthData = useMemo(() => seasonsWatchedDepth(data), [data])
   const scatterData = useMemo(
     () => data.filter(s => s.voteAverage > 0 && s.popularity > 0).map(s => ({ x: s.voteAverage, y: s.popularity, name: s.name })),
     [data]
@@ -99,11 +105,6 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
   }), [theme.headerBg, gridColor, textColor])
 
   const scatterTooltipEl = useMemo(() => <ScatterTooltipContent style={tooltipBg} />, [tooltipBg])
-
-  const handleCollapseChange = useCallback((keys: string | string[]) => {
-    const arr = Array.isArray(keys) ? keys : [keys]
-    onChartsOpenChange(arr.includes('1'))
-  }, [onChartsOpenChange])
 
   const genrePieLabel = ({ name, percent }: { name: string; percent: number }) =>
     `${name} ${(percent * 100).toFixed(0)}%`
@@ -125,15 +126,7 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
   ), [barHeight, gridColor, textColor])
 
   return (
-    <Collapse
-      activeKey={chartsOpen ? ['1'] : []}
-      onChange={handleCollapseChange}
-      style={{ marginBottom: 24 }}
-      items={[{
-        key: '1',
-        label: 'Analytics & Charts',
-        children: (
-          <Row gutter={[16, 16]}>
+    <Row gutter={[16, 16]}>
 
             {/* Top Genres */}
             <Col xs={24} md={12}>
@@ -149,13 +142,14 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
                       outerRadius={screens.md ? 95 : 75}
                       label={screens.md ? genrePieLabel : false}
                       labelLine={false}
+                      onAnimationEnd={() => setGenresAnimDone(true)}
                     >
                       {genres.map((_, i) => (
                         <Cell key={i} fill={chartColors[i % chartColors.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(v: number, name: string) => [`${v} shows`, name]} />
-                    <Legend />
+                    <Legend wrapperStyle={{ opacity: genresAnimDone ? 1 : 0, transition: 'opacity 0.3s' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </Card>
@@ -176,14 +170,49 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
                       outerRadius={screens.md ? 95 : 75}
                       label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                       labelLine={false}
+                      onAnimationEnd={() => setStatusAnimDone(true)}
                     >
                       {statuses.map((_, i) => (
                         <Cell key={i} fill={chartColors[i % chartColors.length]} />
                       ))}
                     </Pie>
                     <Tooltip formatter={(v: number, name: string) => [`${v} shows`, name]} />
-                    <Legend />
+                    <Legend wrapperStyle={{ opacity: statusAnimDone ? 1 : 0, transition: 'opacity 0.3s' }} />
                   </PieChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+
+            {/* Language Breakdown */}
+            <Col xs={24} md={12}>
+              <Card title="Language Breakdown" size="small">
+                <ResponsiveContainer width="100%" height={barHeight} aria-label="Language breakdown bar chart">
+                  <BarChart
+                    data={languages}
+                    layout="vertical"
+                    margin={{ top: 5, right: 10, bottom: 5, left: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
+                    <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
+                    <Bar dataKey="value" name="Shows" fill={chartColors[7]} radius={[0, 3, 3, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+
+            {/* Age Rating Distribution */}
+            <Col xs={24} md={12}>
+              <Card title="Age Rating Distribution" size="small">
+                <ResponsiveContainer width="100%" height={barHeight} aria-label="Age rating distribution bar chart">
+                  <BarChart data={ageRatings} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="name" tick={{ fill: textColor, fontSize: 11 }} />
+                    <YAxis tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
+                    <Bar dataKey="value" name="Shows" fill={chartColors[8]} radius={[3, 3, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </Card>
             </Col>
@@ -361,6 +390,21 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
               </Card>
             </Col>
 
+            {/* Seasons Watched Depth */}
+            <Col xs={24} md={12}>
+              <Card title="Seasons Watched Depth" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Shows by seasons watched</Text>}>
+                <ResponsiveContainer width="100%" height={barHeight}>
+                  <BarChart data={depthData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                    <XAxis dataKey="depth" tick={{ fill: textColor, fontSize: 11 }} />
+                    <YAxis tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
+                    <Bar dataKey="count" name="Shows" fill={chartColors[9]} radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+
             {/* Top Actors & Creators */}
             <Col xs={24} md={12}>
               <Card title="Top Actors & Creators" size="small">
@@ -382,9 +426,6 @@ export const ChartsSection = memo(function ChartsSection({ data, chartsOpen, onC
               </Card>
             </Col>
 
-          </Row>
-        ),
-      }]}
-    />
+    </Row>
   )
 })
