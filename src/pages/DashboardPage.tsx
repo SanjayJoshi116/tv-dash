@@ -4,27 +4,22 @@ import { Card, Col, Divider, Progress, Row, Statistic, Typography } from 'antd'
 import { ClockCircleOutlined, PlayCircleOutlined, StarFilled, StarOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { useTvDataContext } from '../context/TvDataContext'
 import { useTheme } from '../ThemeContext'
-import { avgRating, genreDistribution, statusDistribution, totalHoursWatched } from '../utils/derive'
+import { avgRating, genreDistribution, recentFirst, statusDistribution, totalEpisodesWatched, totalHoursWatched } from '../utils/derive'
 import { SECTION_GAP, STATUS_COLORS } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
 
-const STAT_COLORS = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f']
-
 export function DashboardPage() {
   const { data, loading, error, refetch } = useTvDataContext()
   const navigate = useNavigate()
   const theme = useTheme()
 
-  const totalEpisodes = useMemo(
-    () => data.reduce((sum, s) => sum + (s.episodesWatched || 0), 0),
-    [data]
-  )
+  const totalEpisodes = useMemo(() => totalEpisodesWatched(data), [data])
 
   const recentlyWatched = useMemo(
-    () => [...data].reverse().slice(0, 3),
+    () => recentFirst(data).slice(0, 3),
     [data]
   )
 
@@ -54,11 +49,12 @@ export function DashboardPage() {
   if (loading) return <LoadingState tip="Loading..." />
   if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
+  const statColors = [theme.token.colorPrimary, STATUS_COLORS['Returning Series'], '#faad14', STATUS_COLORS['Canceled']]
   const statCards = [
-    { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: STAT_COLORS[0] },
-    { title: 'Hours Watched', value: totalHoursWatched(data), suffix: 'h', prefix: <ClockCircleOutlined />, color: STAT_COLORS[1] },
-    { title: 'Avg Rating', value: avgRating(data), suffix: '/ 10', prefix: <StarOutlined />, color: STAT_COLORS[2] },
-    { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: STAT_COLORS[3] },
+    { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: statColors[0] },
+    { title: 'Hours Watched', value: totalHoursWatched(data), suffix: 'h', prefix: <ClockCircleOutlined />, color: statColors[1] },
+    { title: 'Avg Rating', value: avgRating(data), suffix: '/ 10', prefix: <StarOutlined />, color: statColors[2] },
+    { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: statColors[3] },
   ]
 
   return (
@@ -197,6 +193,10 @@ export function DashboardPage() {
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
                     onClick={() => navigate(`/shows/${series.tvId}`)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/shows/${series.tvId}`) } }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={series.name}
                   >
                     {series.posterUrl ? (
                       <img

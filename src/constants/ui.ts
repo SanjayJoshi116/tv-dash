@@ -1,3 +1,19 @@
+import type { Grid } from 'antd'
+
+type Screens = ReturnType<typeof Grid.useBreakpoint>
+
+export function responsiveColumns(
+  screens: Screens,
+  tiers: { xxl?: number; xl?: number; lg?: number; md?: number; sm?: number; base: number }
+): number {
+  if (screens.xxl && tiers.xxl !== undefined) return tiers.xxl
+  if (screens.xl && tiers.xl !== undefined) return tiers.xl
+  if (screens.lg && tiers.lg !== undefined) return tiers.lg
+  if (screens.md && tiers.md !== undefined) return tiers.md
+  if (screens.sm && tiers.sm !== undefined) return tiers.sm
+  return tiers.base
+}
+
 export const GENRE_COLORS: Record<string, string> = {
   Animation: 'purple',
   Action: 'red',

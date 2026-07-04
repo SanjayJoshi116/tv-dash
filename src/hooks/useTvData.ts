@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Papa from 'papaparse'
 import type { TvSeries } from '../types/series'
 
@@ -50,13 +50,21 @@ export function useTvData() {
   const [data, setData] = useState<TvSeries[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
+  const controllerRef = useRef<AbortController | null>(null)
+  const mountedRef = useRef(true)
 
   const fetchData = useCallback(() => {
+    const requestId = ++requestIdRef.current
+    controllerRef.current?.abort()
+
     setLoading(true)
     setError(null)
 
     const controller = new AbortController()
+    controllerRef.current = controller
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    const isStale = () => !mountedRef.current || requestIdRef.current !== requestId
 
     fetch('/tv_series.csv', { signal: controller.signal })
       .then(r => {
@@ -69,7 +77,7 @@ export function useTvData() {
           skipEmptyLines: true,
         })
 
-        if (result.errors.length > 0 && result.data.length === 0) {
+        if (result.errors.length > 0) {
           throw new Error(`CSV parse error: ${result.errors[0].message}`)
         }
 
@@ -81,10 +89,12 @@ export function useTvData() {
           }
         }
 
+        if (isStale()) return
         setData(result.data.map(mapRow))
         setLoading(false)
       })
       .catch(err => {
+        if (isStale()) return
         if ((err as Error).name === 'AbortError') {
           setError('Request timed out. Check that tv_series.csv is in the public/ folder.')
         } else {
@@ -96,8 +106,13 @@ export function useTvData() {
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
+    return () => {
+      mountedRef.current = false
+      controllerRef.current?.abort()
+    }
   }, [fetchData])
 
   return { data, loading, error, refetch: fetchData }

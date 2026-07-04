@@ -39,7 +39,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
 
   const handleCollapse = (v: boolean) => {
     setCollapsed(v)
-    try { localStorage.setItem('tvdash-sidebar', String(v)) } catch {}
+    try { localStorage.setItem('tvdash-sidebar', String(v)) } catch { /* ignore storage errors */ }
   }
 
   const selectedKey = location.pathname.startsWith('/shows/') ? '/shows' : (location.pathname || '/')
@@ -53,6 +53,9 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
         collapsible
         collapsed={collapsed}
         onCollapse={handleCollapse}
+        breakpoint="lg"
+        collapsedWidth={0}
+        onBreakpoint={broken => setCollapsed(broken)}
         theme={theme.isDark ? 'dark' : 'light'}
         style={{ background: theme.headerBg, borderRight: `1px solid ${theme.borderColor}` }}
       >

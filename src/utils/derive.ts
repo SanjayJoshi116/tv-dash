@@ -1,5 +1,10 @@
 import type { TvSeries } from '../types/series'
 
+// CSV rows have no timestamp field — last row = most recently watched.
+export function recentFirst(data: TvSeries[]): TvSeries[] {
+  return [...data].reverse()
+}
+
 export function totalHoursWatched(data: TvSeries[]): number {
   const mins = data.reduce((sum, s) => sum + s.totalRuntimeWatched, 0)
   return Math.round(mins / 60)
@@ -102,9 +107,13 @@ export function watchTimeByDecade(data: TvSeries[]): { decade: string; hours: nu
     .sort((a, b) => a.decade.localeCompare(b.decade))
 }
 
+export function totalEpisodesWatched(data: TvSeries[]): number {
+  return data.reduce((sum, s) => sum + (s.episodesWatched || 0), 0)
+}
+
 export function completionRate(data: TvSeries[]): number {
   const total = data.reduce((sum, s) => sum + (s.totalEpisodes || 0), 0)
-  const watched = data.reduce((sum, s) => sum + (s.episodesWatched || 0), 0)
+  const watched = totalEpisodesWatched(data)
   if (!total) return 0
   return Math.round((watched / total) * 100)
 }
@@ -176,7 +185,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
 export function languageDistribution(data: TvSeries[], n = 10): { name: string; value: number }[] {
   const counts: Record<string, number> = {}
   data.forEach(s => {
-    if (!s.language) return
+    if (!s.language || s.language === 'N/A') return
     const name = LANGUAGE_NAMES[s.language] ?? s.language.toUpperCase()
     counts[name] = (counts[name] || 0) + 1
   })

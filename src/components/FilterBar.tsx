@@ -23,7 +23,7 @@ export function FilterBar({ data, filters, onChange }: Props) {
   const genres = uniqueGenres(data)
 
   return (
-    <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
+    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
       <Col xs={24} sm={8}>
         <Input.Search
           placeholder="Search by title, person, genre, keyword…"

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Card, Tag, Typography } from 'antd'
 import { StarFilled } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
-import { GENRE_COLORS, ratingColor } from '../constants/ui'
+import { GENRE_COLORS, ratingColor, STATUS_COLORS } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
 
 const { Text, Title } = Typography
@@ -54,7 +54,7 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
             />
           )}
           {series.status === 'Returning Series' && (
-            <span style={{ position: 'absolute', top: 8, left: 8, background: '#52c41a', color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
+            <span style={{ position: 'absolute', top: 8, left: 8, background: STATUS_COLORS['Returning Series'], color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
               Ongoing
             </span>
           )}

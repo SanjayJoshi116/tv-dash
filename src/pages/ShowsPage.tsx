@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useMemo, useState } from 'react'
 import { Pagination } from 'antd'
 import { useTvDataContext } from '../context/TvDataContext'
 import { FilterBar, type Filters } from '../components/FilterBar'
@@ -6,6 +6,7 @@ import { ShowGrid } from '../components/ShowGrid'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 import { getSettings, saveSetting } from '../utils/settings'
+import { recentFirst } from '../utils/derive'
 
 const DEFAULT_FILTERS: Filters = { search: '', genres: [], status: '', sortBy: 'recentFirst' }
 const DEFAULT_PAGE_SIZE = 24
@@ -58,7 +59,7 @@ export function ShowsPage() {
 
     const key = deferredFilters.sortBy
     if (key === 'recentFirst') {
-      result.reverse()
+      result = recentFirst(result)
     } else {
       result.sort((a, b) => {
         if (key === 'name') return a.name.localeCompare(b.name)
@@ -69,12 +70,13 @@ export function ShowsPage() {
     return result
   }, [data, deferredFilters])
 
-  // Reset to page 1 when filtered result count changes (filter applied)
-  useEffect(() => { setPage(1) }, [filtered.length])
+  // Clamp page in-render when the filtered count shrinks below the current page (filter applied)
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
 
   const paged = useMemo(
-    () => filtered.slice((page - 1) * pageSize, page * pageSize),
-    [filtered, page, pageSize]
+    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filtered, currentPage, pageSize]
   )
 
   if (loading) return <LoadingState tip="Loading series..." />
@@ -87,7 +89,7 @@ export function ShowsPage() {
       {filtered.length > pageSize && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
           <Pagination
-            current={page}
+            current={currentPage}
             pageSize={pageSize}
             total={filtered.length}
             showSizeChanger

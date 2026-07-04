@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import {
+  ageRatingDistribution,
   avgRating,
   completionByGenre,
   completionRate,
   formatRuntime,
   genreDistribution,
+  languageDistribution,
   networkDistribution,
   ratingBuckets,
+  seasonsWatchedDepth,
   showsByYear,
   statusDistribution,
   topActors,
@@ -266,6 +269,69 @@ describe('topCreators', () => {
     ]
     const result = topCreators(data, 1)
     expect(result[0]).toEqual({ name: 'Alice', count: 2 })
+  })
+})
+
+describe('languageDistribution', () => {
+  it('maps known codes to display names', () => {
+    const data = [makeSeries({ language: 'en' }), makeSeries({ language: 'ja' })]
+    const result = languageDistribution(data)
+    expect(result.find(r => r.name === 'English')?.value).toBe(1)
+    expect(result.find(r => r.name === 'Japanese')?.value).toBe(1)
+  })
+
+  it('uppercases unknown codes', () => {
+    const data = [makeSeries({ language: 'xx' })]
+    expect(languageDistribution(data)).toEqual([{ name: 'XX', value: 1 }])
+  })
+
+  it('excludes N/A and empty language', () => {
+    const data = [makeSeries({ language: 'N/A' }), makeSeries({ language: '' })]
+    expect(languageDistribution(data)).toEqual([])
+  })
+})
+
+describe('ageRatingDistribution', () => {
+  it('counts age ratings', () => {
+    const data = [makeSeries({ ageRating: 'TV-14' }), makeSeries({ ageRating: 'TV-MA' })]
+    const result = ageRatingDistribution(data)
+    expect(result.find(r => r.name === 'TV-14')?.value).toBe(1)
+    expect(result.find(r => r.name === 'TV-MA')?.value).toBe(1)
+  })
+
+  it('excludes N/A rating', () => {
+    const data = [makeSeries({ ageRating: 'N/A' })]
+    expect(ageRatingDistribution(data)).toEqual([])
+  })
+})
+
+describe('seasonsWatchedDepth', () => {
+  it('buckets shows by seasons watched count', () => {
+    const data = [
+      makeSeries({ seasonsWatched: [1] }),
+      makeSeries({ seasonsWatched: [1, 2] }),
+      makeSeries({ seasonsWatched: [1, 2, 3] }),
+      makeSeries({ seasonsWatched: [1, 2, 3, 4, 5] }),
+    ]
+    const result = seasonsWatchedDepth(data)
+    expect(result).toEqual([
+      { depth: '1 season', count: 1 },
+      { depth: '2 seasons', count: 1 },
+      { depth: '3 seasons', count: 1 },
+      { depth: '4+ seasons', count: 1 },
+    ])
+  })
+
+  it('excludes shows with no seasons watched', () => {
+    const data = [makeSeries({ seasonsWatched: [] })]
+    const result = seasonsWatchedDepth(data)
+    expect(result.every(b => b.count === 0)).toBe(true)
+  })
+
+  it('keeps fixed bucket order regardless of input order', () => {
+    const data = [makeSeries({ seasonsWatched: [1, 2, 3, 4] }), makeSeries({ seasonsWatched: [1] })]
+    const result = seasonsWatchedDepth(data)
+    expect(result.map(b => b.depth)).toEqual(['1 season', '2 seasons', '3 seasons', '4+ seasons'])
   })
 })
 

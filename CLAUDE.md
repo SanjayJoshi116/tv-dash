@@ -11,7 +11,7 @@ ThemeProvider → ConfigProvider (Ant Design) → TvDataProvider → BrowserRout
 
 **Data flow:** CSV → `useTvData` hook → `TvDataContext` → pages (via `useTvDataContext()`) → components (via props).
 
-Pages always pull from context. Components always receive data as props — they do not call `useTvDataContext()` themselves. The two exceptions (both intentional): `AppLayout` and `ChartsSection` call `useTheme()` directly since theme is a cross-cutting concern.
+Pages always pull from context. Components always receive data as props — they do not call `useTvDataContext()` themselves. The exceptions (all intentional): `AppLayout` and `ChartsSection` call `useTheme()` directly since theme is a cross-cutting concern; `ShowCard` also calls it directly for its poster-fallback background, since prop-drilling a single color through `ShowGrid` isn't worth it.
 
 ## Styling
 

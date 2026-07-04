@@ -72,6 +72,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
 
   const chartHeight = screens.md ? 280 : 220
   const barHeight = screens.md ? 260 : 200
+  const yAxisWidth = screens.md ? 110 : 70
   const [genresAnimDone, setGenresAnimDone] = useState(false)
   const [statusAnimDone, setStatusAnimDone] = useState(false)
 
@@ -118,12 +119,12 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
       >
         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
         <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
-        <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
+        <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fill: textColor, fontSize: 11 }} />
         <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
         <Bar dataKey="count" name="Shows" fill={color} radius={[0, 3, 3, 0]} />
       </BarChart>
     </ResponsiveContainer>
-  ), [barHeight, gridColor, textColor])
+  ), [barHeight, yAxisWidth, gridColor, textColor])
 
   return (
     <Row gutter={[16, 16]}>
@@ -194,7 +195,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fill: textColor, fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
                     <Bar dataKey="value" name="Shows" fill={chartColors[7]} radius={[0, 3, 3, 0]} />
                   </BarChart>
@@ -261,7 +262,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fill: textColor, fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
                     <Bar dataKey="value" name="Shows" fill={chartColors[2]} radius={[0, 3, 3, 0]} />
                   </BarChart>
@@ -283,7 +284,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" tick={{ fill: textColor, fontSize: 11 }} tickFormatter={v => `${Math.round(v / 60)}h`} />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fill: textColor, fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fill: textColor, fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => [`${Math.round(v / 60)}h ${v % 60}m`, 'Watch time']} />
                     <Bar dataKey="mins" name="Watch time" fill={chartColors[4]} radius={[0, 3, 3, 0]} />
                   </BarChart>
@@ -378,7 +379,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis type="number" domain={[0, 100]} tick={{ fill: textColor, fontSize: 11 }} tickFormatter={v => `${v}%`} />
-                    <YAxis type="category" dataKey="name" width={110} tick={{ fill: textColor, fontSize: 11 }} />
+                    <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fill: textColor, fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => [`${v}%`, 'Completion']} />
                     <Bar dataKey="pct" name="Completion" radius={[0, 3, 3, 0]}>
                       {genreCompletion.map((entry, i) => (
