@@ -84,6 +84,10 @@ Standalone Tkinter script, outside the React app, used to build/maintain `public
 
 Run with `npm test`. Config in `vitest.config.ts`.
 
+## Lock File
+
+If `package.json`'s `version` (or any dependency) is bumped by hand, run `npm install` immediately after so `package-lock.json` resyncs — a stale lock passes `npm install` silently but fails `npm ci` in CI. This bit us once: `vitest`'s nested `vite@8` needs a separate `esbuild ^0.27||^0.28` tree from the top-level `vite@5`'s `esbuild ~0.21`, and a stale lock had them wrongly deduped.
+
 ## Commands
 
 ```bash

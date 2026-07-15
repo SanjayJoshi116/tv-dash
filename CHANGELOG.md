@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1] — 2026-07-15
+
+### Fixes
+
+- Regenerated `package-lock.json` — top-level `version` field had been stale since `0.0.1` and never resynced across releases, masking a real conflict: `vitest@4.1.5`'s nested `vite@8` needs `esbuild ^0.27||^0.28`, incompatible with the top-level `vite@5.4.21`'s `esbuild ~0.21`. `npm ci` (CI's install command) correctly refused to dedupe them; local `npm install` silently tolerated it
+
+### Docs
+
+- README: expanded intro, added Live Demo line, Screenshots (6 real captures: Dashboard, Shows, Show Detail, Statistics, Mobile, Default Light theme), Highlights section, Mermaid architecture/data-flow diagram, Testing/Performance/CI sections, License section, Future Improvements, alphabetized Project Structure tree, accurate dependency versions
+- Added `.env.example` documenting `TMDB_API_KEY` for `series-search.py`
+- CLAUDE.md: documented the lock-file resync gotcha above
+
 ## [0.3.0] — 2026-07-15
 
 ### Dashboard Page
