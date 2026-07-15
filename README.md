@@ -78,6 +78,12 @@ Place your `tv_series.csv` in the `public/` directory. The app fetches it at run
 pip install requests
 ```
 
+Set your TMDB API key as an env var (get one free at [themoviedb.org](https://www.themoviedb.org/documentation/api)):
+
+```bash
+export TMDB_API_KEY=your_key_here   # Windows: set TMDB_API_KEY=your_key_here
+```
+
 **Run:**
 
 ```bash

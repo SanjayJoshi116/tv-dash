@@ -70,6 +70,10 @@ Last rows in the CSV = most recently watched. No timestamp field exists. "Recent
 - `ageRatingDistribution(data)` — count shows by `ageRating`, skips `N/A`
 - `seasonsWatchedDepth(data)` — fixed-order buckets: 1/2/3/4+ seasons watched; uses array literal to guarantee axis order
 
+## CSV Generator (series-search.py)
+
+Standalone Tkinter script, outside the React app, used to build/maintain `public/tv_series.csv` via the TMDB API. Reads `TMDB_API_KEY` from the environment (`os.environ.get`) — never hardcode the key, it must not land in git history.
+
 ## Tests
 
 `src/hooks/useTvData.test.ts` — fetch lifecycle  

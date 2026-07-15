@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1] — 2026-07-15
+
+### Security
+
+- `series-search.py`: TMDB API key no longer hardcoded — read from `TMDB_API_KEY` env var, script raises if unset
+- Git history rewritten to scrub the previously-committed key from all past commits (force-pushed)
+- Repo made public
+
 ## [0.2.0] — 2026-06-29
 
 ### Statistics Page
