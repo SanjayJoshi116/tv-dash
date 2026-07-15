@@ -1,3 +1,4 @@
+import os
 import requests
 import csv
 import tkinter as tk
@@ -9,8 +10,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# TMDB API key
-api_key = "REDACTED_TMDB_API_KEY"
+# TMDB API key — set via env var, never hardcode
+api_key = os.environ.get("TMDB_API_KEY")
+if not api_key:
+    raise RuntimeError("Set TMDB_API_KEY environment variable before running.")
 
 # Create a session with retries and a user-agent
 session = requests.Session()
