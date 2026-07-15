@@ -1,13 +1,19 @@
 TV Dashboard — Feature List
-Version 0.2.1
+Version 0.3.0
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
 ═══════════════════════════════════════
-- Stats overview: shows watched, hours/minutes/years watched, avg rating,
-  unique genres, completion rate, episodes watched, top genre, top network
+- Stat row (5 cards): shows watched, hours watched, avg rating, episodes
+  watched, completion rate — value-driven left-border color (rating/
+  completion severity), flex-wrap layout (not fixed column spans)
+- Most Watched spotlight: banner card for the show with the most watch
+  time (poster, genres, rating, runtime); hidden if no runtime watched
 - Continue Watching: shows with partial completion (< 100%)
 - Recently Watched: last 3 entries from CSV (row-order based)
+- Top Genres / Watch Status sidebar cards, icon-labeled
+- Not Started: compact clickable list, unwatched sorted by rating
+- Empty state (Empty + Refresh) when CSV has 0 rows
 
 ═══════════════════════════════════════
 SHOWS PAGE
@@ -83,6 +89,17 @@ CSV GENERATOR (series-search.py)
 - Outputs tv_series.csv — place in public/ to load in dashboard
 
 ═══════════════════════════════════════
+SIDEBAR
+═══════════════════════════════════════
+- Collapse trigger lives in the header (fold/unfold icon), not the
+  default Ant Design Sider footer button
+- Manual collapse: icon-rail (80px), nav icons stay visible/clickable,
+  hover shows tooltip with page name
+- Viewport breakpoint collapse (mobile): full-hide (0px), unchanged
+- Content column capped at 1600px + centered — collapse only shifts
+  margin above that width, consistent reflow feel across all 3 pages
+
+═══════════════════════════════════════
 TECHNICAL
 ═══════════════════════════════════════
 - Static SPA — no backend, no build-time data
@@ -93,3 +110,6 @@ TECHNICAL
 - Filters, sort, page size, theme persist across sessions
 - React.memo on ShowCard, ShowGrid, StatsBar, ChartsSection
 - useDeferredValue for search input (non-blocking filter)
+- Search filter persistence debounced 300ms (was synchronous per keystroke)
+- Route chunks (Shows/Statistics/ShowDetail) idle-prefetched after mount
+- Recharts ResponsiveContainer debounce={200} on all 14 charts

@@ -7,7 +7,9 @@ interface Props {
 export function LoadingState({ tip = 'Loading...' }: Props) {
   return (
     <div style={{ textAlign: 'center', padding: 64 }}>
-      <Spin size="large" tip={tip} />
+      <Spin size="large" tip={tip}>
+        <div style={{ minHeight: 120 }} />
+      </Spin>
     </div>
   )
 }

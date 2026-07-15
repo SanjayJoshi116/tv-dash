@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Pagination } from 'antd'
 import { useTvDataContext } from '../context/TvDataContext'
 import { FilterBar, type Filters } from '../components/FilterBar'
@@ -26,11 +26,16 @@ export function ShowsPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+
   const handleFiltersChange = useCallback((f: Filters) => {
     setFilters(f)
     setPage(1)
-    saveSetting('filters', f)
+    clearTimeout(saveTimeoutRef.current)
+    saveTimeoutRef.current = setTimeout(() => saveSetting('filters', f), 300)
   }, [])
+
+  useEffect(() => () => clearTimeout(saveTimeoutRef.current), [])
 
   const deferredFilters = useDeferredValue(filters)
 

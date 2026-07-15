@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Grid, Layout, Menu, Typography } from 'antd'
-import { BarChartOutlined, DashboardOutlined, VideoCameraOutlined } from '@ant-design/icons'
+import { Button, Grid, Layout, Menu, Typography } from 'antd'
+import { BarChartOutlined, DashboardOutlined, MenuFoldOutlined, MenuUnfoldOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme } from '../ThemeContext'
 
@@ -36,6 +36,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
   const screens = Grid.useBreakpoint()
 
   const [collapsed, setCollapsed] = useState(loadSidebarCollapsed)
+  const [broken, setBroken] = useState(false)
 
   const handleCollapse = (v: boolean) => {
     setCollapsed(v)
@@ -51,11 +52,12 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
     <Layout style={{ height: '100vh' }}>
       <Sider
         collapsible
-        collapsed={collapsed}
-        onCollapse={handleCollapse}
+        trigger={null}
+        collapsed={collapsed || broken}
+        onCollapse={v => handleCollapse(v)}
         breakpoint="lg"
-        collapsedWidth={0}
-        onBreakpoint={broken => setCollapsed(broken)}
+        collapsedWidth={broken ? 0 : 80}
+        onBreakpoint={setBroken}
         theme={theme.isDark ? 'dark' : 'light'}
         style={{ background: theme.headerBg, borderRight: `1px solid ${theme.borderColor}` }}
       >
@@ -91,14 +93,25 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           borderBottom: `1px solid ${theme.borderColor}`,
           flexShrink: 0,
         }}>
-          <Title level={4} style={{ margin: 0, color: theme.isDark ? '#fff' : '#000' }}>
-            {pageTitle}
-          </Title>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => handleCollapse(!collapsed)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              style={{ flexShrink: 0 }}
+            />
+            <Title level={4} ellipsis style={{ margin: 0, color: theme.isDark ? '#fff' : '#000', minWidth: 0 }}>
+              {pageTitle}
+            </Title>
+          </div>
           <ThemeToggle value={activeThemeName} onChange={onThemeChange} />
         </Header>
 
         <Content style={{ background: theme.contentBg, padding: screens.sm ? '24px' : '12px', overflowY: 'scroll', flex: 1 }}>
-          <Outlet />
+          <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+            <Outlet />
+          </div>
         </Content>
       </Layout>
     </Layout>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ConfigProvider, theme as antTheme } from 'antd'
 import { ThemeProvider } from './ThemeContext'
@@ -8,10 +8,15 @@ import { LoadingState } from './components/LoadingState'
 import { DEFAULT_THEME_NAME, THEMES } from './themes'
 import { getSettings, saveSetting } from './utils/settings'
 
-const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })))
-const ShowsPage = lazy(() => import('./pages/ShowsPage').then(m => ({ default: m.ShowsPage })))
-const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then(m => ({ default: m.StatisticsPage })))
-const ShowDetailPage = lazy(() => import('./pages/ShowDetailPage').then(m => ({ default: m.ShowDetailPage })))
+const loadDashboardPage = () => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage }))
+const loadShowsPage = () => import('./pages/ShowsPage').then(m => ({ default: m.ShowsPage }))
+const loadStatisticsPage = () => import('./pages/StatisticsPage').then(m => ({ default: m.StatisticsPage }))
+const loadShowDetailPage = () => import('./pages/ShowDetailPage').then(m => ({ default: m.ShowDetailPage }))
+
+const DashboardPage = lazy(loadDashboardPage)
+const ShowsPage = lazy(loadShowsPage)
+const StatisticsPage = lazy(loadStatisticsPage)
+const ShowDetailPage = lazy(loadShowDetailPage)
 
 function loadThemeName(): string {
   const parsed = getSettings() as { themeName?: string }
@@ -21,6 +26,17 @@ function loadThemeName(): string {
 
 export default function App() {
   const [activeThemeName, setActiveThemeName] = useState(() => loadThemeName())
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 1))
+    const cancelIdle = window.cancelIdleCallback ?? clearTimeout
+    const id = idle(() => {
+      loadShowsPage()
+      loadStatisticsPage()
+      loadShowDetailPage()
+    })
+    return () => cancelIdle(id)
+  }, [])
 
   const activeTheme = THEMES[activeThemeName] ?? THEMES[DEFAULT_THEME_NAME]
 

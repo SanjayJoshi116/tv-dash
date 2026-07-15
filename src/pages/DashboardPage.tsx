@@ -1,11 +1,30 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Col, Divider, Progress, Row, Statistic, Typography } from 'antd'
-import { ClockCircleOutlined, PlayCircleOutlined, StarFilled, StarOutlined, VideoCameraOutlined } from '@ant-design/icons'
+import { Button, Card, Col, Divider, Empty, Progress, Row, Statistic, Tag, Typography } from 'antd'
+import {
+  BarChartOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  PlayCircleOutlined,
+  StarFilled,
+  StarOutlined,
+  TagsOutlined,
+  VideoCameraOutlined,
+} from '@ant-design/icons'
 import { useTvDataContext } from '../context/TvDataContext'
 import { useTheme } from '../ThemeContext'
-import { avgRating, genreDistribution, recentFirst, statusDistribution, totalEpisodesWatched, totalHoursWatched } from '../utils/derive'
-import { SECTION_GAP, STATUS_COLORS } from '../constants/ui'
+import {
+  avgRating,
+  completionRate,
+  formatRuntime,
+  genreDistribution,
+  recentFirst,
+  statusDistribution,
+  topByWatchTime,
+  totalEpisodesWatched,
+  totalHoursWatched,
+} from '../utils/derive'
+import { GENRE_COLORS, SECTION_GAP, STATUS_COLORS, completionColor, ratingColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 
@@ -16,6 +35,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const theme = useTheme()
 
+  const topShow = useMemo(() => topByWatchTime(data, 1)[0], [data])
   const totalEpisodes = useMemo(() => totalEpisodesWatched(data), [data])
 
   const recentlyWatched = useMemo(
@@ -49,12 +69,31 @@ export function DashboardPage() {
   if (loading) return <LoadingState tip="Loading..." />
   if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
-  const statColors = [theme.token.colorPrimary, STATUS_COLORS['Returning Series'], '#faad14', STATUS_COLORS['Canceled']]
+  if (data.length === 0) {
+    return (
+      <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <Empty
+          description={
+            <>
+              <Text strong>No shows yet</Text>
+              <br />
+              <Text type="secondary">Add rows to <code>public/tv_series.csv</code> to get started</Text>
+            </>
+          }
+        />
+        <Button style={{ marginTop: 16 }} onClick={refetch}>Refresh</Button>
+      </div>
+    )
+  }
+
+  const completion = completionRate(data)
+  const rating = parseFloat(avgRating(data))
   const statCards = [
-    { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: statColors[0] },
-    { title: 'Hours Watched', value: totalHoursWatched(data), suffix: 'h', prefix: <ClockCircleOutlined />, color: statColors[1] },
-    { title: 'Avg Rating', value: avgRating(data), suffix: '/ 10', prefix: <StarOutlined />, color: statColors[2] },
-    { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: statColors[3] },
+    { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: theme.token.colorPrimary },
+    { title: 'Hours Watched', value: totalHoursWatched(data), suffix: 'h', prefix: <ClockCircleOutlined />, color: STATUS_COLORS['Returning Series'] },
+    { title: 'Avg Rating', value: avgRating(data), suffix: '/ 10', prefix: <StarOutlined />, color: ratingColor(rating) },
+    { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: STATUS_COLORS['Canceled'] },
+    { title: 'Completion Rate', value: completion, suffix: '%', prefix: <CheckCircleOutlined />, color: completionColor(completion) },
   ]
 
   return (
@@ -62,7 +101,7 @@ export function DashboardPage() {
       {/* Stat Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: SECTION_GAP }}>
         {statCards.map(({ title, value, suffix, prefix, color }) => (
-          <Col key={title} xs={12} sm={6}>
+          <Col key={title} flex="1 1 180px">
             <Card size="small" style={{ borderLeft: `4px solid ${color}`, height: '100%' }}>
               <Statistic title={title} value={value} suffix={suffix} prefix={prefix} />
             </Card>
@@ -75,6 +114,46 @@ export function DashboardPage() {
 
         {/* LEFT: Continue Watching + Recently Watched */}
         <Col xs={24} lg={16}>
+
+          {/* Most Watched spotlight */}
+          {topShow && topShow.totalRuntimeWatched > 0 && (
+            <Card
+              hoverable
+              onClick={() => navigate(`/shows/${topShow.tvId}`)}
+              style={{ cursor: 'pointer', marginBottom: SECTION_GAP }}
+              styles={{ body: { padding: 16 } }}
+            >
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                {topShow.posterUrl ? (
+                  <img
+                    src={topShow.posterUrl}
+                    alt={topShow.name}
+                    loading="lazy"
+                    style={{ width: 64, height: 96, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+                  />
+                ) : (
+                  <div style={{ width: 64, height: 96, borderRadius: 6, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>📺</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Most Watched</Text>
+                  <Title level={4} style={{ margin: '2px 0 6px' }} ellipsis>{topShow.name}</Title>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                    {topShow.genres.slice(0, 3).map(g => (
+                      <Tag key={g} color={GENRE_COLORS[g] ?? 'default'} style={{ fontSize: 11, margin: 0 }}>{g}</Tag>
+                    ))}
+                    {topShow.voteAverage > 0 && (
+                      <Text style={{ fontSize: 12, color: ratingColor(topShow.voteAverage) }}>
+                        <StarFilled style={{ fontSize: 11 }} /> {topShow.voteAverage.toFixed(1)}
+                      </Text>
+                    )}
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    <ClockCircleOutlined /> {formatRuntime(topShow.totalRuntimeWatched)} watched
+                  </Text>
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Continue Watching */}
           {inProgress.length > 0 && (
@@ -97,6 +176,7 @@ export function DashboardPage() {
                             <img
                               src={series.posterUrl}
                               alt={series.name}
+                              loading="lazy"
                               style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                             />
                           ) : (
@@ -134,6 +214,7 @@ export function DashboardPage() {
                         <img
                           src={series.posterUrl}
                           alt={series.name}
+                          loading="lazy"
                           style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                         />
                       ) : (
@@ -159,7 +240,7 @@ export function DashboardPage() {
         <Col xs={24} lg={8}>
 
           {/* Top Genres */}
-          <Card title="Top Genres" size="small" style={{ marginBottom: 12 }}>
+          <Card title={<><TagsOutlined style={{ marginRight: 6 }} />Top Genres</>} size="small" style={{ marginBottom: 12 }}>
             {topGenres.map(({ name, value }) => (
               <div key={name} style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -172,7 +253,7 @@ export function DashboardPage() {
           </Card>
 
           {/* Watch Status */}
-          <Card title="Watch Status" size="small" style={{ marginBottom: 12 }}>
+          <Card title={<><BarChartOutlined style={{ marginRight: 6 }} />Watch Status</>} size="small" style={{ marginBottom: 12 }}>
             {statuses.map(({ name, value }) => (
               <div key={name} style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -202,6 +283,7 @@ export function DashboardPage() {
                       <img
                         src={series.posterUrl}
                         alt={series.name}
+                        loading="lazy"
                         style={{ width: 36, height: 54, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
                       />
                     ) : (

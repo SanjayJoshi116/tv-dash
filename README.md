@@ -6,11 +6,11 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 
 ## Features
 
-- **Stats bar** — total shows, hours/minutes/years watched, average rating, genres, completion rate, top genre, top network, episodes watched
+- **Dashboard** — 5-card stat row (value-driven colors), "Most Watched" spotlight, Continue Watching, Recently Watched, Top Genres/Watch Status sidebar, empty state for a fresh CSV
 - **Analytics** — 14 charts always visible: genre distribution, status breakdown, language breakdown, age rating distribution, rating histogram, shows by year, top networks, top 10 by watch time, watch time by decade/year, rating vs popularity scatter, completion by genre, seasons watched depth, top actors/creators
-- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions
+- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions (debounced)
 - **Poster grid** — responsive card grid (2–8 columns) with TMDB poster images, rating badges, genre tags, and pagination
-- **Responsive layout** — sidebar auto-collapses below `lg` breakpoint, route-based code splitting keeps initial load lean
+- **Responsive layout** — collapsible sidebar (icon-rail on manual collapse, full-hide below `lg` breakpoint), header-based collapse trigger, capped/centered content column, idle-prefetched route chunks
 - **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker
 - **3 themes** — Default Dark, Default Light, Dracula; persists across sessions
 

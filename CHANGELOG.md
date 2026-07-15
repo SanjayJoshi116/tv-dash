@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.3.0] — 2026-07-15
+
+### Dashboard Page
+
+- Added "Most Watched" spotlight banner (top show by watch time; hidden if nothing watched)
+- Added Completion Rate as a 5th stat card; Avg Rating and Completion Rate borders now color by value (`ratingColor`/`completionColor`) instead of a fixed color array
+- Stat row switched from fixed `xs/sm` column spans to `Col flex="1 1 180px"` — wraps naturally regardless of card count
+- Added empty state (`Empty` + Refresh button) for `data.length === 0`, matching `ShowGrid`'s existing convention
+- Top Genres / Watch Status sidebar cards now have leading icons
+
+### Sidebar / Layout
+
+- Collapse trigger moved from the default Ant Design `Sider` footer button into the header (fold/unfold icon next to the page title)
+- Manual collapse now shows an icon-rail (`collapsedWidth: 80`) instead of fully hiding the sidebar; nav icons stay clickable with hover tooltips (built-in antd behavior). Mobile breakpoint collapse still fully hides (tracked as a separate `broken` state)
+- `Content` capped at `maxWidth: 1600` and centered — collapse now shifts margin instead of reflowing page content inconsistently between pages
+- Fixed header page-title wrapping mid-word at narrow viewports (`ellipsis` + `minWidth: 0`)
+
+### Performance
+
+- Search filter persistence debounced 300ms (was a synchronous `localStorage` write per keystroke)
+- `FilterBar`'s `uniqueGenres(data)` now memoized — was recomputing every keystroke
+- Shows/Statistics/ShowDetail route chunks idle-prefetched after initial mount
+- All 14 Recharts `ResponsiveContainer`s given `debounce={200}` — fixes visible lag during sidebar collapse (each was re-rendering on every animation frame)
+- `DashboardPage` list thumbnails given `loading="lazy"` (hero image on Show Detail intentionally excluded — above the fold)
+
+### Fixes
+
+- `LoadingState`: fixed antd v5 `Spin` warning ("`tip` only work in nest or fullscreen pattern") by nesting a child
+- `FilterBar`: added `id`/`name` to all 4 form fields (DevTools accessibility warning)
+
 ## [0.2.1] — 2026-07-15
 
 ### Security

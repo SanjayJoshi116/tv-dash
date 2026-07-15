@@ -58,7 +58,10 @@ Exception: sidebar collapsed state uses a separate `tvdash-sidebar` key directly
 - **Recharts charts:** all derive calls in `ChartsSection` are `useMemo`-ized. Charts are always visible (no Collapse wrapper).
 - **React.memo:** applied to `ShowCard`, `ShowGrid`, `StatsBar`, `ChartsSection`.
 - **ShowGrid columns:** uses `Grid.useBreakpoint()` (viewport breakpoints) — not ResizeObserver. Avoids layout-shift race conditions.
-- **Loading/error state:** use `<LoadingState />` and `<ErrorState />` shared components — never inline Spin/Alert patterns.
+- **Loading/error state:** use `<LoadingState />` and `<ErrorState />` shared components — never inline Spin/Alert patterns. `Spin` requires nested content when using the `tip` prop (antd v5) — never render a bare `<Spin tip={...} />`.
+- **Form fields:** every `Input`/`Select` needs an `id` (and `name` where applicable) — a11y/DevTools requirement, see `FilterBar.tsx`.
+- **Sidebar collapse:** trigger lives in the Header (fold/unfold icon), not the default Ant Design `Sider` footer button (`Sider` uses `trigger={null}`). Manual collapse → icon-rail (`collapsedWidth={80}`), nav icons stay visible with hover tooltips (built-in antd `Menu`-in-`Sider` behavior, no custom tooltip code). Viewport-breakpoint collapse (mobile) is tracked separately (`broken` state) and always fully hides (`collapsedWidth={0}`) — don't conflate the two into one boolean. `Content` is capped at `maxWidth: 1600` + centered so collapse only shifts margin above that width, keeping the reflow feel consistent across pages.
+- **Recharts `ResponsiveContainer`:** always set `debounce={200}` — without it, every container re-measures/re-renders on every animation frame during the Sider collapse transition (14 charts × continuous resize events was the concrete perf problem this fixed).
 
 ## CSV Row Order
 

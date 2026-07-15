@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Col, Input, Row, Select } from 'antd'
 import type { TvSeries } from '../types/series'
 import { uniqueGenres } from '../utils/derive'
@@ -20,12 +21,14 @@ interface Props {
 const STATUS_OPTIONS = ['', 'Ended', 'Returning Series', 'Canceled']
 
 export function FilterBar({ data, filters, onChange }: Props) {
-  const genres = uniqueGenres(data)
+  const genres = useMemo(() => uniqueGenres(data), [data])
 
   return (
     <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
       <Col xs={24} sm={8}>
         <Input.Search
+          id="shows-search"
+          name="search"
           placeholder="Search by title, person, genre, keyword…"
           aria-label="Search shows"
           value={filters.search}
@@ -35,6 +38,7 @@ export function FilterBar({ data, filters, onChange }: Props) {
       </Col>
       <Col xs={24} sm={6}>
         <Select
+          id="shows-genre-filter"
           mode="multiple"
           placeholder="Filter by genre"
           aria-label="Filter by genre"
@@ -48,6 +52,7 @@ export function FilterBar({ data, filters, onChange }: Props) {
       </Col>
       <Col xs={24} sm={6} md={5}>
         <Select
+          id="shows-status-filter"
           placeholder="Status"
           aria-label="Filter by status"
           style={{ width: '100%' }}
@@ -59,6 +64,7 @@ export function FilterBar({ data, filters, onChange }: Props) {
       </Col>
       <Col xs={24} sm={6} md={5}>
         <Select
+          id="shows-sort"
           aria-label="Sort shows by"
           style={{ width: '100%' }}
           value={filters.sortBy}

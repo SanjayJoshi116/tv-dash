@@ -111,7 +111,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
     `${name} ${(percent * 100).toFixed(0)}%`
 
   const peopleBarChart = useCallback((items: { name: string; count: number }[], color: string) => (
-    <ResponsiveContainer width="100%" height={barHeight}>
+    <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
       <BarChart
         data={items.map(a => ({ name: a.name.length > 20 ? a.name.slice(0, 18) + '…' : a.name, count: a.count }))}
         layout="vertical"
@@ -132,7 +132,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Top Genres */}
             <Col xs={24} md={12}>
               <Card title="Top Genres" size="small">
-                <ResponsiveContainer width="100%" height={chartHeight} aria-label="Top genres pie chart">
+                <ResponsiveContainer width="100%" height={chartHeight} debounce={200} aria-label="Top genres pie chart">
                   <PieChart>
                     <Pie
                       data={genres}
@@ -159,7 +159,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Status Breakdown */}
             <Col xs={24} md={12}>
               <Card title="Status Breakdown" size="small">
-                <ResponsiveContainer width="100%" height={chartHeight} aria-label="Show status breakdown donut chart">
+                <ResponsiveContainer width="100%" height={chartHeight} debounce={200} aria-label="Show status breakdown donut chart">
                   <PieChart>
                     <Pie
                       data={statuses}
@@ -187,7 +187,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Language Breakdown */}
             <Col xs={24} md={12}>
               <Card title="Language Breakdown" size="small">
-                <ResponsiveContainer width="100%" height={barHeight} aria-label="Language breakdown bar chart">
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200} aria-label="Language breakdown bar chart">
                   <BarChart
                     data={languages}
                     layout="vertical"
@@ -206,7 +206,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Age Rating Distribution */}
             <Col xs={24} md={12}>
               <Card title="Age Rating Distribution" size="small">
-                <ResponsiveContainer width="100%" height={barHeight} aria-label="Age rating distribution bar chart">
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200} aria-label="Age rating distribution bar chart">
                   <BarChart data={ageRatings} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="name" tick={{ fill: textColor, fontSize: 11 }} />
@@ -221,7 +221,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Rating Distribution */}
             <Col xs={24} md={12}>
               <Card title="Rating Distribution" size="small">
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <BarChart data={ratings} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="range" tick={{ fill: textColor, fontSize: 11 }} />
@@ -236,7 +236,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Shows by First Air Year */}
             <Col xs={24} md={12}>
               <Card title="Shows by First Air Year" size="small">
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <BarChart data={byYear} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="year" tick={{ fill: textColor, fontSize: 11 }} interval="preserveStartEnd" />
@@ -251,7 +251,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Top Networks */}
             <Col xs={24} md={12}>
               <Card title="Top Networks" size="small">
-                <ResponsiveContainer width="100%" height={barHeight} aria-label="Top networks bar chart">
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200} aria-label="Top networks bar chart">
                   <BarChart
                     data={networks.map(n => ({
                       name: n.name.length > 20 ? n.name.slice(0, 18) + '…' : n.name,
@@ -273,7 +273,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Top 10 by Watch Time */}
             <Col xs={24} md={12}>
               <Card title="Top 10 by Watch Time" size="small">
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <BarChart
                     data={topShows.map(s => ({
                       name: s.name.length > 18 ? s.name.slice(0, 16) + '…' : s.name,
@@ -296,7 +296,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Watch Time by Decade */}
             <Col xs={24}>
               <Card title="Watch Time by Decade" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Hours watched, grouped by show era</Text>}>
-                <ResponsiveContainer width="100%" height={chartHeight}>
+                <ResponsiveContainer width="100%" height={chartHeight} debounce={200}>
                   <AreaChart data={decadeData} margin={{ top: 10, right: 20, bottom: 5, left: 0 }}>
                     <defs>
                       <linearGradient id="decadeGradient" x1="0" y1="0" x2="0" y2="1">
@@ -325,7 +325,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Watch Time by Release Year */}
             <Col xs={24} md={12}>
               <Card title="Watch Time by Release Year" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Hours watched per year</Text>}>
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <BarChart data={yearWatchData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="year" tick={{ fill: textColor, fontSize: 11 }} interval="preserveStartEnd" />
@@ -340,7 +340,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Rating vs Popularity Scatter */}
             <Col xs={24} md={12}>
               <Card title="Rating vs Popularity" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Each dot is a show</Text>}>
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis
@@ -368,7 +368,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Completion Rate by Genre */}
             <Col xs={24} md={12}>
               <Card title="Completion Rate by Genre" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>% episodes watched</Text>}>
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <BarChart
                     data={genreCompletion.map(g => ({
                       name: g.genre.length > 18 ? g.genre.slice(0, 16) + '…' : g.genre,
@@ -394,7 +394,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
             {/* Seasons Watched Depth */}
             <Col xs={24} md={12}>
               <Card title="Seasons Watched Depth" size="small" extra={<Text type="secondary" style={{ fontSize: 11 }}>Shows by seasons watched</Text>}>
-                <ResponsiveContainer width="100%" height={barHeight}>
+                <ResponsiveContainer width="100%" height={barHeight} debounce={200}>
                   <BarChart data={depthData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                     <XAxis dataKey="depth" tick={{ fill: textColor, fontSize: 11 }} />
