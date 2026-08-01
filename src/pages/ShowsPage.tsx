@@ -89,7 +89,7 @@ export function ShowsPage() {
 
   return (
     <>
-      <FilterBar data={data} filters={filters} onChange={handleFiltersChange} />
+      <FilterBar data={data} filters={filters} onChange={handleFiltersChange} resultCount={filtered.length} />
       <ShowGrid data={paged} />
       {filtered.length > pageSize && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>

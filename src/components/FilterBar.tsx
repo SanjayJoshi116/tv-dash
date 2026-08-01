@@ -1,7 +1,12 @@
 import { useMemo } from 'react'
-import { Col, Input, Row, Select } from 'antd'
+import { Button, Card, Col, Input, Row, Select, Tag, Typography } from 'antd'
+import { CloseCircleOutlined } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
 import { uniqueGenres } from '../utils/derive'
+import { cardShadow } from '../constants/ui'
+import { useTheme } from '../ThemeContext'
+
+const { Text } = Typography
 
 export type SortKey = 'recentFirst' | 'voteAverage' | 'popularity' | 'firstAirYear' | 'totalRuntimeWatched' | 'name'
 
@@ -16,15 +21,23 @@ interface Props {
   data: TvSeries[]
   filters: Filters
   onChange: (f: Filters) => void
+  resultCount: number
 }
 
 const STATUS_OPTIONS = ['', 'Ended', 'Returning Series', 'Canceled']
 
-export function FilterBar({ data, filters, onChange }: Props) {
+export function FilterBar({ data, filters, onChange, resultCount }: Props) {
   const genres = useMemo(() => uniqueGenres(data), [data])
+  const theme = useTheme()
+
+  const hasActiveFilters = !!filters.search || filters.genres.length > 0 || !!filters.status
 
   return (
-    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+    <Card
+      size="small"
+      style={{ marginBottom: 24, borderRadius: 10, boxShadow: cardShadow(theme.isDark) }}
+    >
+    <Row gutter={[16, 16]}>
       <Col xs={24} sm={8}>
         <Input.Search
           id="shows-search"
@@ -80,5 +93,40 @@ export function FilterBar({ data, filters, onChange }: Props) {
         />
       </Col>
     </Row>
+
+    {(hasActiveFilters || resultCount !== data.length) && (
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${theme.borderColor}` }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>{resultCount} of {data.length} shows</Text>
+
+        {filters.search && (
+          <Tag closable onClose={() => onChange({ ...filters, search: '' })} style={{ margin: 0 }}>
+            Search: &quot;{filters.search}&quot;
+          </Tag>
+        )}
+        {filters.genres.map(g => (
+          <Tag key={g} closable onClose={() => onChange({ ...filters, genres: filters.genres.filter(x => x !== g) })} style={{ margin: 0 }}>
+            {g}
+          </Tag>
+        ))}
+        {filters.status && (
+          <Tag closable onClose={() => onChange({ ...filters, status: '' })} style={{ margin: 0 }}>
+            {filters.status}
+          </Tag>
+        )}
+
+        {hasActiveFilters && (
+          <Button
+            type="link"
+            size="small"
+            icon={<CloseCircleOutlined />}
+            onClick={() => onChange({ ...filters, search: '', genres: [], status: '' })}
+            style={{ padding: 0, marginLeft: 'auto' }}
+          >
+            Reset filters
+          </Button>
+        )}
+      </div>
+    )}
+    </Card>
   )
 }

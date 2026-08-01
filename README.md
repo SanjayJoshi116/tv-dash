@@ -22,20 +22,20 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 
 ## Highlights
 
-- 14 always-visible Recharts analytics, all `useMemo`-ized
+- 14 Recharts analytics grouped into 4 tabs (Overview / Watch Time / Ratings / People & Networks), all `useMemo`-ized
 - 3 themes (Default Dark, Default Light, Dracula), zero hardcoded dark/light colors
-- Fully responsive: icon-rail collapsible sidebar, 2–8 column poster grid, capped/centered content column
+- Fully responsive: icon-rail collapsible sidebar on desktop, fixed auto-hiding bottom nav bar on phone, 2–8 column poster grid, capped/centered content column
 - Debounced search + memoized filter pipeline, idle-prefetched route chunks
 - Standalone TMDB-powered CSV generator (`series-search.py`) with incremental updates
 
 ## Features
 
-- **Dashboard** — 5-card stat row (value-driven colors), "Most Watched" spotlight, Continue Watching, Recently Watched, Top Genres/Watch Status sidebar, empty state for a fresh CSV
-- **Analytics** — 14 charts always visible: genre distribution, status breakdown, language breakdown, age rating distribution, rating histogram, shows by year, top networks, top 10 by watch time, watch time by decade/year, rating vs popularity scatter, completion by genre, seasons watched depth, top actors/creators
-- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions (debounced)
+- **Dashboard** — 5-card stat row (icon badge + value-driven colors), 3-card Highlights row (Most Watched/Top Rated/Newest Release), Continue Watching (with "New eps" flag on returning shows), Recently Watched, Top Genres/Watch Status/Ratings sidebar tabs, Explore More CTA row, empty state for a fresh CSV
+- **Analytics** — 14 charts across 4 tabs: genre distribution, status breakdown, language breakdown, age rating distribution, rating histogram, shows by year, top networks, top 10 by watch time, watch time by decade/year, rating vs popularity scatter, completion by genre, seasons watched depth, top actors/creators
+- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions (debounced); result-count row with removable filter chips and a one-click reset
 - **Poster grid** — responsive card grid (2–8 columns) with TMDB poster images, rating badges, genre tags, and pagination
-- **Responsive layout** — collapsible sidebar (icon-rail on manual collapse, full-hide below `lg` breakpoint), header-based collapse trigger, capped/centered content column, idle-prefetched route chunks
-- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker
+- **Responsive layout** — icon-rail collapsible sidebar on desktop (collapse trigger at the bottom of the sidebar itself); on phone, the sidebar is replaced entirely by a fixed bottom nav bar that auto-hides on scroll; capped/centered content column; idle-prefetched route chunks
+- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker, graceful fallback for missing/broken poster images, and a proper empty state for an invalid show ID
 - **3 themes** — Default Dark, Default Light, Dracula; persists across sessions
 - **Accessibility** — labeled form fields (`aria-label`/`id` on all filters), keyboard-operable list items (`role="button"`, Enter/Space handlers), hover tooltips on the collapsed sidebar
 
@@ -61,7 +61,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:5173`. The dev server also binds `0.0.0.0`, so it's reachable from other devices on the same network via the Network URL Vite prints alongside the local one — handy for checking the mobile layout on an actual phone.
 
 ## Production Build
 

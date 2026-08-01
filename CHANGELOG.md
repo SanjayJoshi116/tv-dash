@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.4.0] — 2026-08-01
+
+### Mobile
+
+- Sidebar's mobile behavior reworked twice this release. First pass: hidden `Sider` became a proper full-height overlay drawer (backdrop, in-drawer close button) — the original mobile collapse was a dead end (`collapsed={collapsed || broken}` meant the header's fold button could never actually open it). Second pass: replaced the drawer entirely with a fixed bottom nav bar (`Dashboard`/`Shows`/`Statistics`, icon + label, active-route highlight) — no hamburger, no drawer, matches native app nav conventions better on phone
+- Bottom nav auto-hides on scroll (slides down via `transform: translateY(100%)`, 0.25s), reappears on scroll-up or near top of page — was covering page content (and, transiently, the Shows page's `Pagination`) while scrolling
+- Desktop sidebar-collapse trigger moved from the Header into the bottom of the `Sider` itself, above the nav rail's mobile bottom-nav swap — Header no longer carries any menu-toggle button on desktop
+- `ChartsSection`'s 4 tab labels shortened below the `sm` breakpoint ("Watch Time" → "Time", "People & Networks" → "People") — the long label was clipping mid-word against antd's tab-overflow "…" trigger on narrow screens
+- `vite.config.ts`: `server.host: true` — dev server now binds `0.0.0.0`, reachable from other devices on the LAN (prints a Network URL alongside Local)
+
+### Dashboard Page
+
+- "Most Watched" spotlight replaced with a 3-card **Highlights** row: Most Watched, Top Rated, Newest Release
+- Added a **Ratings** tab (rating-distribution mini bar chart) alongside the existing Top Genres/Watch Status sidebar tabs
+- Added **Explore More** CTA row at the page bottom (links to Shows / Statistics)
+- Stat cards redesigned: icon badge + colored top border + shadow, using `theme.chartColors[]` for the 3 non-semantic stats (was reusing `STATUS_COLORS['Canceled']` red for the Episodes-Watched card — a semantic mismatch) and keeping `ratingColor()`/`completionColor()` for the 2 value-driven ones
+- "Continue Watching" cards flag `status === 'Returning Series'` with a "New eps" tag
+- "Not Started" section now shows an "All caught up" fallback card instead of silently disappearing when every show has been started — the right sidebar column was ending far short of the left column's height with nothing there before
+- All poster-fallback spots (4 on this page, plus `ShowCard.tsx`) switched from the 📺 emoji to the same `VideoCameraOutlined` (`opacity: 0.4`) placeholder `ShowDetailPage` already used — one of the 4 emoji instances had survived an earlier pass unnoticed
+
+### Shows Page
+
+- `FilterBar` wrapped in a themed Card (shadow + radius, matches Dashboard); added a result-count row ("X of Y shows") with closable filter chips (search/genre/status) and a "Reset filters" link — previously no way to see the total match count below 24 results, or clear filters except one at a time
+- `ShowCard` given `borderRadius: 10` for visual consistency — deliberately did **not** add the Dashboard's drop-shadow treatment here: a 24-card grid with a shadow on every tile reads as noise, not polish; kept the existing `hoverable` lift instead
+
+### Statistics Page
+
+- `ChartsSection`'s 14 charts regrouped from one flat `Row` into 4 tabs — **Overview** (genres/status/language/age-rating/year), **Watch Time** (top-10/decade/release-year/depth), **Ratings** (distribution/scatter/completion-by-genre), **People & Networks** (networks/actors-creators)
+- `StatsBar`'s 10 KPI tiles redesigned to match the Dashboard stat-card language (icon badge, colored top border, shadow)
+
+### Show Detail Page
+
+- "Show not found" state replaced a bare `<Button>` with the app's `Empty`-based pattern (matches Dashboard's zero-data state)
+- Poster `<img>` now has an `onError` handler falling back to the "No Poster" placeholder — previously only triggered when `posterUrl` was empty, not when a real URL 404s
+- Back button now checks `location.key === 'default'` (react-router's marker for "no history entry before this one") and falls back to `navigate('/shows')` instead of `navigate(-1)` — direct-linking straight to a show and clicking Back no longer risks landing nowhere
+- All 8 cards on the page (4 inline stats + Show Details/Watch History/Cast/Keywords) given the shared shadow/radius treatment
+
+### Fixes
+
+- `AppLayout`/`ShowDetailPage`: the two scroll/route-driven state resets (bottom-nav visibility on navigation, poster-error flag on show change) were calling `setState` directly inside a bare `useEffect` — flagged by `react-hooks/set-state-in-effect`. Tried React's documented "adjust state during render" alternative (compare against a `last*` state value, `setState` in the render body when it differs) instead of an effect; it genuinely broke both resets under `React.StrictMode` — confirmed with a debug trace showing the state oscillating and settling on the wrong value after every navigation. Reverted both to the original `useEffect`s with a targeted `eslint-disable-next-line` and a comment explaining why, rather than ship a lint-clean regression
+- `FilterBar`: unescaped `"` characters around the search-term chip (`react/no-unescaped-entities`)
+- None of the above had been caught before this pass — `npm run build` doesn't run ESLint, only `npm run lint` does, and it hadn't been run since these were introduced earlier in the same body of work
+
+### Shared
+
+- Added `cardShadow(isDark)` to `src/constants/ui.ts` — the shadow formula (`0 6px 20px rgba(0,0,0,0.35)` dark / `0 4px 16px rgba(30,30,63,0.08)` light) was duplicated inline across Dashboard, FilterBar, ChartsSection, StatsBar, and Show Detail; now one shared helper
+
 ## [0.3.1] — 2026-07-15
 
 ### Fixes

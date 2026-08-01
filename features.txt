@@ -1,18 +1,23 @@
 TV Dashboard — Feature List
-Version 0.3.1
+Version 0.4.0
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
 ═══════════════════════════════════════
 - Stat row (5 cards): shows watched, hours watched, avg rating, episodes
-  watched, completion rate — value-driven left-border color (rating/
-  completion severity), flex-wrap layout (not fixed column spans)
-- Most Watched spotlight: banner card for the show with the most watch
-  time (poster, genres, rating, runtime); hidden if no runtime watched
-- Continue Watching: shows with partial completion (< 100%)
+  watched, completion rate — icon badge + colored top border + shadow;
+  colors from theme.chartColors[] for count stats, ratingColor()/
+  completionColor() for the 2 value-driven ones, flex-wrap layout
+- Highlights row (3 cards): Most Watched, Top Rated, Newest Release —
+  poster + name + detail, click through to Show Detail
+- Continue Watching: shows with partial completion (< 100%); "New eps"
+  tag on cards whose show status is "Returning Series"
 - Recently Watched: last 3 entries from CSV (row-order based)
-- Top Genres / Watch Status sidebar cards, icon-labeled
-- Not Started: compact clickable list, unwatched sorted by rating
+- Sidebar tabs: Top Genres / Watch Status / Ratings (rating-distribution
+  mini bar chart), icon-labeled
+- Not Started: compact clickable list, unwatched sorted by rating;
+  "All caught up" fallback card when every show has been started
+- Explore More CTA row: links to Shows and Statistics pages
 - Empty state (Empty + Refresh) when CSV has 0 rows
 
 ═══════════════════════════════════════
@@ -23,9 +28,12 @@ SHOWS PAGE
 - Sort options: Recently Watched, Rating, Popularity, Year, Watch Time, Name A–Z
 - Search: matches title, actor/actress, keyword, genre, creator, network
 - Filter by genre (multi-select) and status
+- Filter bar in a themed Card (shadow + radius); result-count row
+  ("X of Y shows") with closable filter chips and a Reset filters link
 - All filters + sort persist across sessions via localStorage
 - Pagination with configurable page size (12/24/48/96)
-- Show cards: poster image, rating badge, status indicator, genre tags
+- Show cards: poster image, rating badge, status indicator, genre tags,
+  rounded corners (radius 10) for visual consistency with other pages
 
 ═══════════════════════════════════════
 SHOW DETAIL PAGE
@@ -42,7 +50,12 @@ SHOW DETAIL PAGE
   tracker with check/clock icons (watched / not watched)
 - Cast: top 15 actors with overflow count
 - Keywords: up to 20 tags
-- Poster fallback: styled placeholder with camera icon
+- Poster fallback: styled VideoCameraOutlined placeholder; also triggers
+  on a broken/404 poster URL via <img onError>, not just an empty one
+- "Show not found" now an Empty-based state (was a bare button)
+- Back button falls back to /shows instead of browser history when
+  there's no prior entry (direct link / page refresh)
+- All 8 cards on the page: shadow + rounded corners (matches other pages)
 
 ═══════════════════════════════════════
 STATISTICS PAGE
@@ -51,22 +64,36 @@ Stats Bar (10 cards):
 - Shows Watched, Avg Rating, Unique Genres, Completion Rate,
   Episodes Watched, Top Genre, Top Network,
   Hours Watched, Minutes Watched, Years Watched
+- Icon badge + colored top border + shadow (matches Dashboard stat cards)
 
-14 Charts (always visible):
-1.  Top Genres — pie chart
-2.  Status Breakdown — donut chart
-3.  Language Breakdown — horizontal bar
-4.  Age Rating Distribution — vertical bar
-5.  Rating Distribution — vertical bar (0–10 buckets)
-6.  Shows by First Air Year — vertical bar
-7.  Top Networks — horizontal bar
-8.  Top 10 by Watch Time — horizontal bar
-9.  Watch Time by Decade — area chart with gradient fill
-10. Watch Time by Release Year — vertical bar
+14 Charts, grouped into 4 tabs (was one flat always-visible list):
+
+Overview tab:
+1. Top Genres — pie chart
+2. Status Breakdown — donut chart
+3. Language Breakdown — horizontal bar
+4. Age Rating Distribution — vertical bar
+5. Shows by First Air Year — vertical bar
+
+Watch Time tab:
+6. Top 10 by Watch Time — horizontal bar
+7. Seasons Watched Depth — vertical bar (1/2/3/4+ seasons)
+8. Watch Time by Decade — area chart with gradient fill
+9. Watch Time by Release Year — vertical bar
+
+Ratings tab:
+10. Rating Distribution — vertical bar (0–10 buckets)
 11. Rating vs Popularity — scatter plot
 12. Completion Rate by Genre — horizontal bar (color-coded)
-13. Seasons Watched Depth — vertical bar (1/2/3/4+ seasons)
+
+People & Networks tab:
+13. Top Networks — horizontal bar
 14. Top Actors & Creators — tabbed horizontal bar
+
+Tab labels shorten below the sm breakpoint ("Watch Time" → "Time",
+"People & Networks" → "People") to avoid clipping against antd's
+tab-overflow trigger on narrow screens. All chart cards: shadow +
+rounded corners (matches other pages).
 
 ═══════════════════════════════════════
 THEMES
@@ -89,15 +116,24 @@ CSV GENERATOR (series-search.py)
 - Outputs tv_series.csv — place in public/ to load in dashboard
 
 ═══════════════════════════════════════
-SIDEBAR
+SIDEBAR / MOBILE NAVIGATION
 ═══════════════════════════════════════
-- Collapse trigger lives in the header (fold/unfold icon), not the
-  default Ant Design Sider footer button
+Desktop (viewport ≥ lg breakpoint):
+- Collapse trigger lives at the bottom of the Sider itself (moved off
+  the Header — Header carries no menu-toggle button on desktop anymore)
 - Manual collapse: icon-rail (80px), nav icons stay visible/clickable,
   hover shows tooltip with page name
-- Viewport breakpoint collapse (mobile): full-hide (0px), unchanged
 - Content column capped at 1600px + centered — collapse only shifts
   margin above that width, consistent reflow feel across all 3 pages
+
+Mobile (viewport < lg breakpoint):
+- Sidebar/Sider fully hidden (collapsedWidth 0) — no hamburger, no
+  drawer. Replaced by a fixed bottom nav bar: 3 icon+label buttons
+  (Dashboard/Shows/Statistics), active route highlighted
+- Bottom nav auto-hides on scroll-down (slides off via translateY,
+  0.25s transition), reappears on scroll-up or near the top of page
+- Content gets extra bottom padding so the last card/chart is never
+  hidden under the bar even when it's visible
 
 ═══════════════════════════════════════
 TECHNICAL
@@ -113,3 +149,8 @@ TECHNICAL
 - Search filter persistence debounced 300ms (was synchronous per keystroke)
 - Route chunks (Shows/Statistics/ShowDetail) idle-prefetched after mount
 - Recharts ResponsiveContainer debounce={200} on all 14 charts
+- cardShadow(isDark) shared helper in constants/ui.ts — one shadow
+  formula used by Dashboard, FilterBar, ChartsSection, StatsBar, and
+  Show Detail cards instead of 5x duplicated inline style objects
+- Dev server binds 0.0.0.0 (vite.config server.host: true) — reachable
+  from other devices on the same network, not just localhost

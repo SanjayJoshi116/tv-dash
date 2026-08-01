@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Card, Tag, Typography } from 'antd'
-import { StarFilled } from '@ant-design/icons'
+import { StarFilled, VideoCameraOutlined } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
 import { GENRE_COLORS, ratingColor, STATUS_COLORS } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
@@ -27,7 +27,7 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
       tabIndex={0}
       role="button"
       aria-label={series.name}
-      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 10, overflow: 'hidden' }}
       styles={{ body: { padding: 12, display: 'flex', flexDirection: 'column', flex: 1 } }}
       cover={
         <div style={{ position: 'relative', paddingTop: '150%', overflow: 'hidden', background: theme.posterFallbackBg }}>
@@ -39,8 +39,8 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>
-              📺
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <VideoCameraOutlined style={{ fontSize: 40, opacity: 0.4 }} />
             </div>
           )}
           {series.voteAverage > 0 && (

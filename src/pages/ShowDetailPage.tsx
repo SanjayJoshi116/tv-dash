@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Button, Card, Col, Descriptions, Grid, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
+import { useEffect, useState } from 'react'
+import { useLocation, useParams, useNavigate } from 'react-router-dom'
+import { Button, Card, Col, Descriptions, Empty, Grid, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
@@ -14,7 +14,7 @@ import {
 import { useTvDataContext } from '../context/TvDataContext'
 import { formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
-import { GENRE_COLORS, SECTION_GAP, STATUS_TAG_COLORS, completionColor, ratingColor } from '../constants/ui'
+import { GENRE_COLORS, SECTION_GAP, STATUS_TAG_COLORS, cardShadow, completionColor, ratingColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 
@@ -27,10 +27,19 @@ const formatDate = (iso: string) => iso
 export function ShowDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { data, loading, error, refetch } = useTvDataContext()
   const screens = Grid.useBreakpoint()
   const theme = useTheme()
   const [overviewExpanded, setOverviewExpanded] = useState(false)
+  const [posterError, setPosterError] = useState(false)
+
+  // Reset poster-error state when navigating to a different show. See
+  // AppLayout.tsx's identical note: the "adjust state during render"
+  // alternative (avoids react-hooks/set-state-in-effect) misbehaves under
+  // React.StrictMode in this codebase — a plain effect is what's correct here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setPosterError(false) }, [id])
 
   if (loading) return <LoadingState tip="Loading..." />
   if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
@@ -39,21 +48,34 @@ export function ShowDetailPage() {
 
   if (!series) {
     return (
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/shows')}>
-        Show not found — Back to Shows
-      </Button>
+      <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <Empty
+          description={
+            <>
+              <Text strong>Show not found</Text>
+              <br />
+              <Text type="secondary">No show matches this ID — it may have been removed from the CSV</Text>
+            </>
+          }
+        />
+        <Button icon={<ArrowLeftOutlined />} style={{ marginTop: 16 }} onClick={() => navigate('/shows')}>
+          Back to Shows
+        </Button>
+      </div>
     )
   }
 
   const color = ratingColor(series.voteAverage)
   const completion = series.totalEpisodes > 0 ? Math.round((series.episodesWatched / series.totalEpisodes) * 100) : 0
   const allSeasons = Array.from({ length: series.seasons }, (_, i) => i + 1)
+  const cardStyle = { borderRadius: 10, boxShadow: cardShadow(theme.isDark) }
+  const showPoster = series.posterUrl && !posterError
 
   return (
     <div>
       <Button
         icon={<ArrowLeftOutlined />}
-        onClick={() => navigate(-1)}
+        onClick={() => location.key === 'default' ? navigate('/shows') : navigate(-1)}
         style={{ marginBottom: SECTION_GAP / 2 }}
       >
         Back
@@ -67,10 +89,11 @@ export function ShowDetailPage() {
         flexDirection: screens.md ? 'row' : 'column',
         alignItems: 'flex-start',
       }}>
-        {series.posterUrl ? (
+        {showPoster ? (
           <img
             src={series.posterUrl}
             alt={series.name}
+            onError={() => setPosterError(true)}
             style={{
               width: screens.xl ? 260 : screens.md ? 200 : '100%',
               maxWidth: 280,
@@ -180,7 +203,7 @@ export function ShowDetailPage() {
           {/* Stat cards inline */}
           <Row gutter={[16, 16]}>
             <Col xs={12} sm={6}>
-              <Card size="small">
+              <Card size="small" style={cardStyle}>
                 <Statistic
                   title="Episodes Watched"
                   value={series.episodesWatched}
@@ -191,7 +214,7 @@ export function ShowDetailPage() {
               </Card>
             </Col>
             <Col xs={12} sm={6}>
-              <Card size="small">
+              <Card size="small" style={cardStyle}>
                 <Statistic
                   title="Watch Time"
                   value={formatRuntime(series.totalRuntimeWatched)}
@@ -201,7 +224,7 @@ export function ShowDetailPage() {
               </Card>
             </Col>
             <Col xs={12} sm={6}>
-              <Card size="small">
+              <Card size="small" style={cardStyle}>
                 <Statistic
                   title="Seasons Watched"
                   value={series.seasonsWatched.length}
@@ -212,7 +235,7 @@ export function ShowDetailPage() {
               </Card>
             </Col>
             <Col xs={12} sm={6}>
-              <Card size="small">
+              <Card size="small" style={cardStyle}>
                 <Statistic
                   title="First Aired"
                   value={series.firstAirYear}
@@ -229,7 +252,7 @@ export function ShowDetailPage() {
       {/* Show Details + Watch History */}
       <Row gutter={[16, 16]} style={{ marginBottom: SECTION_GAP }}>
         <Col xs={24} md={12}>
-          <Card title="Show Details" size="small" style={{ height: '100%' }}>
+          <Card title="Show Details" size="small" style={{ ...cardStyle, height: '100%' }}>
             <Descriptions column={2}>
               <Descriptions.Item label="Seasons">{series.seasons}</Descriptions.Item>
               <Descriptions.Item label="Total Episodes">{series.totalEpisodes}</Descriptions.Item>
@@ -259,7 +282,7 @@ export function ShowDetailPage() {
         </Col>
 
         <Col xs={24} md={12}>
-          <Card title="Watch History" size="small" style={{ height: '100%' }}>
+          <Card title="Watch History" size="small" style={{ ...cardStyle, height: '100%' }}>
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <Text type="secondary" style={{ fontSize: 14 }}>Episode Completion</Text>
@@ -299,7 +322,7 @@ export function ShowDetailPage() {
       <Row gutter={[16, 16]}>
         {series.actors.length > 0 && (
           <Col xs={24} md={12}>
-            <Card title="Cast" size="small">
+            <Card title="Cast" size="small" style={cardStyle}>
               <Space wrap size={4}>
                 {series.actors.slice(0, 15).map(a => <Tag key={a}>{a}</Tag>)}
                 {series.actors.length > 15 && (
@@ -311,7 +334,7 @@ export function ShowDetailPage() {
         )}
         {series.keywords.length > 0 && (
           <Col xs={24} md={series.actors.length > 0 ? 12 : 24}>
-            <Card title="Keywords" size="small">
+            <Card title="Keywords" size="small" style={cardStyle}>
               <Space wrap size={4}>
                 {series.keywords.slice(0, 20).map(k => (
                   <Tag key={k} color="default" style={{ fontSize: 13 }}>{k}</Tag>
