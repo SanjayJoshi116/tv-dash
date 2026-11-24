@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { Card, Grid, Statistic } from 'antd'
+import { Grid } from 'antd'
 import {
   ClockCircleOutlined,
   FireOutlined,
@@ -22,28 +22,39 @@ import {
   totalYearsWatched,
   uniqueGenres,
 } from '../utils/derive'
-import { cardShadow, completionColor, ratingColor, responsiveColumns } from '../constants/ui'
+import { SECTION_GAP, SPACING, cardShadow, ratingColor, completionColor, responsiveColumns } from '../constants/ui'
+import { StatCard } from './StatCard'
 import { useTheme } from '../ThemeContext'
 
 interface Props {
   data: TvSeries[]
 }
 
+// Hover text matching what the card renders (precision + suffix), not the raw float
+function formatTitle({ value, precision, suffix }: { value: number | string; precision?: number; suffix?: string }): string {
+  const v = typeof value === 'number' && precision != null ? value.toFixed(precision) : String(value)
+  return suffix ? `${v} ${suffix}` : v
+}
+
 export const StatsBar = memo(function StatsBar({ data }: Props) {
   const screens = Grid.useBreakpoint()
   const theme = useTheme()
 
-  const stats = useMemo(() => ({
-    totalEpisodes: totalEpisodesWatched(data),
-    topNetwork: networkDistribution(data, 1)[0]?.name ?? '–',
-    hours: totalHoursWatched(data),
-    rating: avgRating(data),
-    genres: uniqueGenres(data).length,
-    completion: completionRate(data),
-    topGenre: topGenreByWatchTime(data),
-    minutes: totalMinutesWatched(data),
-    years: totalYearsWatched(data),
-  }), [data])
+  const stats = useMemo(() => {
+    // Hours via totalHoursWatched (rounds the raw sum once) so it matches the Dashboard
+    const minutes = totalMinutesWatched(data)
+    return {
+      totalEpisodes: totalEpisodesWatched(data),
+      topNetwork: networkDistribution(data, 1)[0]?.name ?? '–',
+      hours: totalHoursWatched(data),
+      rating: avgRating(data),
+      genres: uniqueGenres(data).length,
+      completion: completionRate(data),
+      topGenre: topGenreByWatchTime(data),
+      minutes,
+      years: totalYearsWatched(data),
+    }
+  }, [data])
 
   const cols = responsiveColumns(screens, { xl: 5, md: 4, base: 2 })
   const shadow = cardShadow(theme.isDark)
@@ -51,7 +62,7 @@ export const StatsBar = memo(function StatsBar({ data }: Props) {
 
   const cards = [
     { key: 'shows-watched', title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: chartColors[0] },
-    { key: 'avg-rating', title: 'Avg Rating', value: stats.rating, prefix: <StarOutlined />, suffix: '/ 10', color: ratingColor(parseFloat(stats.rating)) },
+    { key: 'avg-rating', title: 'Avg Rating', value: stats.rating?.toFixed(1) ?? '–', prefix: <StarOutlined />, suffix: '/ 10', color: stats.rating == null ? theme.chartText : ratingColor(stats.rating) },
     { key: 'unique-genres', title: 'Unique Genres', value: stats.genres, prefix: <TagsOutlined />, color: chartColors[1] },
     { key: 'completion-rate', title: 'Completion Rate', value: stats.completion, prefix: <TrophyOutlined />, suffix: '%', color: completionColor(stats.completion) },
     { key: 'episodes-watched', title: 'Episodes Watched', value: stats.totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: chartColors[2] },
@@ -66,33 +77,21 @@ export const StatsBar = memo(function StatsBar({ data }: Props) {
     <div style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gap: 16,
-      marginBottom: 24,
+      gap: SPACING.lg,
+      marginBottom: SECTION_GAP,
     }}>
       {cards.map(card => (
-        <div key={card.key} title={String(card.value)}>
-          <Card
-            size="small"
-            style={{
-              height: '100%',
-              borderRadius: 10,
-              border: `1px solid ${card.color}40`,
-              borderTop: `3px solid ${card.color}`,
-              boxShadow: shadow,
-            }}
-            styles={{ body: { display: 'flex', alignItems: 'center', gap: 12 } }}
-          >
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: `${card.color}22`, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
-              {card.prefix}
-            </div>
-            <Statistic
-              title={card.title}
-              value={card.value}
-              suffix={card.suffix}
-              precision={card.precision}
-              valueStyle={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: card.color, fontWeight: 700, fontSize: 20 }}
-            />
-          </Card>
+        <div key={card.key} title={formatTitle(card)}>
+          <StatCard
+            title={card.title}
+            value={card.value}
+            suffix={card.suffix}
+            precision={card.precision}
+            prefix={card.prefix}
+            color={card.color}
+            shadow={shadow}
+            compact
+          />
         </div>
       ))}
     </div>

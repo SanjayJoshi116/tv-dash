@@ -35,9 +35,10 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 - **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions (debounced); result-count row with removable filter chips and a one-click reset
 - **Poster grid** — responsive card grid (2–8 columns) with TMDB poster images, rating badges, genre tags, and pagination
 - **Responsive layout** — icon-rail collapsible sidebar on desktop (collapse trigger at the bottom of the sidebar itself); on phone, the sidebar is replaced entirely by a fixed bottom nav bar that auto-hides on scroll; capped/centered content column; idle-prefetched route chunks
-- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker, graceful fallback for missing/broken poster images, and a proper empty state for an invalid show ID
+- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker, graceful fallback for missing/broken poster images, and a proper empty state for an invalid show ID; "Show more" appears only when the overview is actually truncated
 - **3 themes** — Default Dark, Default Light, Dracula; persists across sessions
-- **Accessibility** — labeled form fields (`aria-label`/`id` on all filters), keyboard-operable list items (`role="button"`, Enter/Space handlers), hover tooltips on the collapsed sidebar
+- **Accessibility** — labeled form fields (`aria-label`/`id` on all filters), keyboard-operable cards and list items across the Dashboard (`role="button"`, Enter/Space handlers), hover tooltips on the collapsed sidebar
+- **Resilient routing** — 404 page for unknown URLs; per-route error boundary keeps the layout up if a page crashes or a lazy chunk fails to load; every navigation starts at the top of the page; trailing-slash URLs resolve to the right nav item
 
 ## Architecture & Data Flow
 
@@ -45,7 +46,7 @@ Single-page app, no backend. `tv_series.csv` is fetched at runtime, parsed once,
 
 ```mermaid
 flowchart LR
-    CSV["tv_series.csv"] --> Hook["useTvData (fetch + PapaParse)"]
+    CSV["tv_series.csv"] --> Hook["useTvData (fetch) + parseSeriesCsv (PapaParse)"]
     Hook --> Context["TvDataContext"]
     Context --> Pages["Pages (Dashboard / Shows / Statistics / Detail)"]
     Pages --> Components["Components (props only)"]
@@ -78,33 +79,35 @@ Place your `tv_series.csv` in the `public/` directory. The app fetches it at run
 
 > **Note:** The last rows in the CSV are treated as most recently watched (no timestamp field).
 
+Required columns: `TV ID`, `Name`, `Vote Average`, `Genres`, `Status` — a file missing any of them fails to load. A row with the wrong number of fields or a blank/invalid/duplicate `TV ID` is skipped rather than failing the whole file — a warning banner above every page lists skipped rows (full list in the console). A broken quote fails the load (it would otherwise swallow every following row), and so does every row being skipped. An empty file shows the Dashboard empty state. CSV values are only ever rendered as text or image sources (never raw HTML or links).
+
 ### Expected columns
 
 | Column | Type | Notes |
 |--------|------|-------|
-| TV ID | number | Unique identifier |
+| TV ID | number | Unique positive integer; rows without one, or repeating an earlier ID, are skipped |
 | Name | string | |
-| Language | string | ISO code, e.g. `ja` |
-| Seasons | number | |
+| Language | string | ISO code, e.g. `ja`; blank or `N/A` = unknown |
+| Seasons | number | Blank or `0` = unknown (shown as `–`) |
 | Episode Runtime | number \| `N/A` | Minutes |
-| First Air Year | number | |
+| First Air Year | number | Blank or `0` = unknown (shown as `–`, sorted last) |
 | Genres | string | Comma-separated |
 | Creators | string | Comma-separated |
 | Networks | string | Comma-separated |
-| Status | string | `Ended`, `Returning Series`, or `Canceled` |
+| Status | string | TMDB status: `Returning Series`, `Ended`, `Canceled`, `In Production`, `Planned`, `Pilot` |
 | Total Episodes | number | |
 | Last Episode Air Date | date | `YYYY-MM-DD` |
 | Popularity | number | |
 | Vote Count | number | |
-| Vote Average | number | 0–10 scale |
+| Vote Average | number | 0–10 scale; blank or `0` = unrated (hidden, sorted last) |
 | Actors/Actresses | string | Comma-separated |
 | Keywords/Tags | string | Comma-separated |
 | First Air Date | date | `YYYY-MM-DD` |
 | Overview | string | |
 | Tagline | string | |
 | Poster URL | string | Full URL to poster image |
-| Age Rating | string | e.g. `TV-14`, `TV-MA` |
-| Seasons Watched | string | Comma-separated season numbers |
+| Age Rating | string | e.g. `TV-14`, `TV-MA`; blank or `N/A` = unknown |
+| Seasons Watched | string | Comma-separated season numbers (duplicates and non-positive values ignored) |
 | Episodes Watched | number | |
 | Total Runtime Watched (min) | number | |
 
@@ -135,17 +138,18 @@ python series-search.py
 1. Search a TV series by name — results pulled from TMDB
 2. Select a show from the results table
 3. Pick which seasons you watched in the season panel
-4. Click **Save to CSV** — appends a new row (or updates an existing one) in `tv_series.csv`
+4. Click **Save to CSV** — appends a new row (or updates an existing one) in `public/tv_series.csv`
 
 **Notes:**
 - Re-adding a show with new seasons updates the existing row rather than duplicating it.
 - Last row = most recently watched — row order is watch order (no timestamp field).
-- Move the output `tv_series.csv` to `public/` before running the dashboard.
+- Writes straight to `public/tv_series.csv` next to the script, whatever folder you run it from — no copy step.
+- Unknown values are written as blank (older rows may contain `N/A`; the dashboard treats both as unknown).
 
 ## Stack
 
 - [React 18.3](https://react.dev) + [TypeScript 5.4](https://www.typescriptlang.org)
-- [Ant Design 5.17](https://ant.design) — UI components and theming
+- [Ant Design 5.25+](https://ant.design) — UI components and theming
 - [Recharts 2.12](https://recharts.org) — charts
 - [PapaParse 5.4](https://www.papaparse.com) — CSV parsing
 - [React Router 7.18](https://reactrouter.com) — routing
@@ -153,10 +157,12 @@ python series-search.py
 
 ## Testing
 
-[Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com) + jsdom. Two suites, 44 tests:
+[Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com). Tests run in a node environment by default; DOM tests opt into jsdom with a `// @vitest-environment jsdom` first line (see `useTvData.test.ts`). Four suites, 77 tests:
 
-- `src/hooks/useTvData.test.ts` — fetch lifecycle (loading/success/error/retry)
+- `src/hooks/useTvData.test.ts` — fetch lifecycle (loading/success/error/retry, superseded response, timeout)
+- `src/utils/parseSeriesCsv.test.ts` — CSV parsing rules (row mapping, skipped rows, fatal errors, numeric fallbacks); shared CSV fixtures in `parseSeriesCsv.fixture.ts`
 - `src/utils/derive.test.ts` — every aggregation function in `derive.ts`
+- `src/constants/ui.test.ts` — color helpers and status ordering
 
 ```bash
 npm run test        # run once
@@ -182,28 +188,38 @@ src/
 ├── themes.ts                 # 3 theme definitions + Theme type
 ├── ThemeContext.tsx           # useTheme() hook
 ├── constants/
-│   └── ui.ts                 # Shared colors, spacing, and color functions
+│   └── ui.ts                 # Shared colors, spacing, card style, status table + color helpers
 ├── context/
-│   └── TvDataContext.tsx     # CSV data context
+│   ├── TvDataContext.tsx     # TvDataProvider (wraps useTvData)
+│   └── useTvDataContext.ts   # Context object + useTvDataContext() hook
 ├── hooks/
-│   └── useTvData.ts          # CSV fetch + parse hook
+│   └── useTvData.ts          # CSV fetch hook (loading/error/refetch)
 ├── types/
-│   └── series.ts              # TvSeries interface
+│   ├── filters.ts             # Filters, SortKey (Shows page)
+│   └── series.ts              # TvSeries interface (unknown = null), NameValue/NameCount
 ├── utils/
+│   ├── a11y.ts                # activateOnKey (Enter/Space for role="button")
 │   ├── derive.ts              # Stats and chart data helpers
+│   ├── lookup.ts              # Own-key lookup for CSV-derived keys
+│   ├── parseSeriesCsv.ts      # Pure CSV → TvSeries[] parsing + row validation
 │   └── settings.ts            # localStorage persistence utility
 ├── components/
 │   ├── AppLayout.tsx          # Sider + Header + Content shell
-│   ├── ChartsSection.tsx      # All Recharts charts (always visible, no collapse)
+│   ├── ChartsSection.tsx      # 14 Recharts charts in 4 tabs
+│   ├── CsvWarningBanner.tsx   # Dismissible banner for skipped CSV rows
 │   ├── ErrorState.tsx         # Shared error alert with retry
 │   ├── FilterBar.tsx          # Search, genre, status, sort controls
 │   ├── LoadingState.tsx       # Shared loading spinner
+│   ├── PosterThumb.tsx        # Poster image + placeholder fallback (empty or 404 URL)
+│   ├── RouteErrorBoundary.tsx # Catches page render / chunk-load errors
 │   ├── ShowCard.tsx           # Individual show card
 │   ├── ShowGrid.tsx           # Responsive CSS-grid of ShowCards
+│   ├── StatCard.tsx           # Shared stat tile (Dashboard + StatsBar)
 │   ├── StatsBar.tsx           # Row of stat cards
 │   └── ThemeToggle.tsx        # Theme selector
 └── pages/
-    ├── DashboardPage.tsx      # Overview: stats, spotlight, continue/recently watched
+    ├── DashboardPage.tsx      # Overview: stats, highlights, continue/recently watched
+    ├── NotFoundPage.tsx       # Catch-all 404 route
     ├── ShowDetailPage.tsx     # Full show detail
     ├── ShowsPage.tsx          # Filtered, paginated show grid
     └── StatisticsPage.tsx     # StatsBar + ChartsSection

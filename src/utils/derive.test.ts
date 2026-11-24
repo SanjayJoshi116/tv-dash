@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   ageRatingDistribution,
   avgRating,
+  compareDescNullsLast,
   completionByGenre,
   completionRate,
   formatRuntime,
+  truncate,
   genreDistribution,
   languageDistribution,
   networkDistribution,
@@ -68,16 +70,17 @@ describe('totalHoursWatched', () => {
 describe('avgRating', () => {
   it('averages vote averages', () => {
     const data = [makeSeries({ voteAverage: 8 }), makeSeries({ voteAverage: 6 })]
-    expect(avgRating(data)).toBe('7.0')
+    expect(avgRating(data)).toBe(7)
   })
 
-  it('ignores shows with 0 rating', () => {
-    const data = [makeSeries({ voteAverage: 8 }), makeSeries({ voteAverage: 0 })]
-    expect(avgRating(data)).toBe('8.0')
+  it('ignores unrated (null) shows', () => {
+    const data = [makeSeries({ voteAverage: 8 }), makeSeries({ voteAverage: null })]
+    expect(avgRating(data)).toBe(8)
   })
 
-  it('returns dash for empty array', () => {
-    expect(avgRating([])).toBe('–')
+  it('returns null when nothing is rated', () => {
+    expect(avgRating([])).toBeNull()
+    expect(avgRating([makeSeries({ voteAverage: null })])).toBeNull()
   })
 })
 
@@ -119,8 +122,8 @@ describe('ratingBuckets', () => {
     expect(buckets[8].count).toBe(1)
   })
 
-  it('skips shows with 0 rating', () => {
-    const data = [makeSeries({ voteAverage: 0 })]
+  it('skips unrated (null) shows', () => {
+    const data = [makeSeries({ voteAverage: null })]
     const buckets = ratingBuckets(data)
     expect(buckets.every(b => b.count === 0)).toBe(true)
   })
@@ -285,8 +288,8 @@ describe('languageDistribution', () => {
     expect(languageDistribution(data)).toEqual([{ name: 'XX', value: 1 }])
   })
 
-  it('excludes N/A and empty language', () => {
-    const data = [makeSeries({ language: 'N/A' }), makeSeries({ language: '' })]
+  it('excludes unknown (null) language', () => {
+    const data = [makeSeries({ language: null })]
     expect(languageDistribution(data)).toEqual([])
   })
 })
@@ -299,8 +302,8 @@ describe('ageRatingDistribution', () => {
     expect(result.find(r => r.name === 'TV-MA')?.value).toBe(1)
   })
 
-  it('excludes N/A rating', () => {
-    const data = [makeSeries({ ageRating: 'N/A' })]
+  it('excludes unknown (null) age rating', () => {
+    const data = [makeSeries({ ageRating: null })]
     expect(ageRatingDistribution(data)).toEqual([])
   })
 })
@@ -350,5 +353,53 @@ describe('formatRuntime', () => {
 
   it('formats zero', () => {
     expect(formatRuntime(0)).toBe('0m')
+  })
+
+  it('rounds fractional minutes', () => {
+    expect(formatRuntime(125.5)).toBe('2h 6m')
+    expect(formatRuntime(119.6)).toBe('2h')
+  })
+})
+
+describe('truncate', () => {
+  it('leaves strings at or under max unchanged', () => {
+    expect(truncate('Netflix', 20)).toBe('Netflix')
+    expect(truncate('a'.repeat(20), 20)).toBe('a'.repeat(20))
+  })
+  it('cuts long strings to max-2 chars plus ellipsis', () => {
+    expect(truncate('a'.repeat(25), 20)).toBe('a'.repeat(18) + '…')
+    expect(truncate('a'.repeat(19), 18)).toBe('a'.repeat(16) + '…')
+  })
+  it('counts emoji as one character and never splits a surrogate pair', () => {
+    expect(truncate('🤖'.repeat(5), 5)).toBe('🤖'.repeat(5))
+    expect(truncate('ab🤖🤖cd', 5)).toBe('ab🤖…')
+  })
+  it('clamps max below 2 so the result is never longer than the input', () => {
+    expect(truncate('abcdef', 1)).toBe('…')
+    expect(truncate('abcdef', 0)).toBe('…')
+  })
+})
+
+describe('count maps ignore Object.prototype keys', () => {
+  it('counts a "constructor" status like any other', () => {
+    expect(statusDistribution([makeSeries({ status: 'constructor' })])).toEqual([{ name: 'constructor', value: 1 }])
+  })
+  it('completionByGenre handles "constructor" / "__proto__" genres without touching prototypes', () => {
+    const data = [makeSeries({ genres: ['constructor', '__proto__'], episodesWatched: 5, totalEpisodes: 10 })]
+    expect(completionByGenre(data).map(d => d.genre).sort()).toEqual(['__proto__', 'constructor'])
+    expect(({} as Record<string, unknown>).watched).toBeUndefined()
+    expect((Object as unknown as Record<string, unknown>).watched).toBeUndefined()
+  })
+})
+
+describe('compareDescNullsLast', () => {
+  it('sorts descending with nulls last', () => {
+    expect([3, null, 9, 1, null].sort(compareDescNullsLast)).toEqual([9, 3, 1, null, null])
+  })
+})
+
+describe('languageDistribution own-key lookup', () => {
+  it('does not resolve inherited keys as language names', () => {
+    expect(languageDistribution([makeSeries({ language: 'constructor' })])).toEqual([{ name: 'CONSTRUCTOR', value: 1 }])
   })
 })

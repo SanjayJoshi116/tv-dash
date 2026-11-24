@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useParams, useNavigate } from 'react-router-dom'
 import { Button, Card, Col, Descriptions, Empty, Grid, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
 import {
@@ -11,18 +11,22 @@ import {
   TrophyOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons'
-import { useTvDataContext } from '../context/TvDataContext'
-import { formatRuntime } from '../utils/derive'
+import { useTvDataContext } from '../context/useTvDataContext'
+import { completionRate, formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
-import { GENRE_COLORS, SECTION_GAP, STATUS_TAG_COLORS, cardShadow, completionColor, ratingColor } from '../constants/ui'
+import { SECTION_GAP, SPACING, cardStyle as baseCardStyle, completionColor, genreTagColor, ratingColor, statusTagColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
 
-const formatDate = (iso: string) => iso
-  ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  : '–'
+// 'YYYY-MM-DD' parses as UTC midnight — format in UTC too, or it shows a day early west of UTC
+const formatDate = (iso: string) => {
+  const d = iso ? new Date(iso) : null
+  return d && !isNaN(d.getTime())
+    ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    : '–'
+}
 
 export function ShowDetailPage() {
   const { id } = useParams()
@@ -32,19 +36,36 @@ export function ShowDetailPage() {
   const screens = Grid.useBreakpoint()
   const theme = useTheme()
   const [overviewExpanded, setOverviewExpanded] = useState(false)
-  const [posterError, setPosterError] = useState(false)
-
-  // Reset poster-error state when navigating to a different show. See
-  // AppLayout.tsx's identical note: the "adjust state during render"
-  // alternative (avoids react-hooks/set-state-in-effect) misbehaves under
-  // React.StrictMode in this codebase — a plain effect is what's correct here.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setPosterError(false) }, [id])
-
-  if (loading) return <LoadingState tip="Loading..." />
-  if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
+  // URL-keyed (like PosterThumb): a new show's poster gets a fresh attempt with no reset
+  const [failedPosterUrl, setFailedPosterUrl] = useState<string | null>(null)
+  const [overviewOverflows, setOverviewOverflows] = useState(false)
+  const overviewRef = useRef<HTMLParagraphElement>(null)
 
   const series = data.find(s => s.tvId === Number(id))
+
+  // Reset per-show UI state when navigating to a different show (the page
+  // isn't remounted on /shows/1 → /shows/2). See AppLayout.tsx's identical
+  // note: the "adjust state during render" alternative (avoids
+  // react-hooks/set-state-in-effect) misbehaves under React.StrictMode in
+  // this codebase — a plain effect is what's correct here.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOverviewExpanded(false)
+  }, [id])
+
+  // Show "Show more" only when the 4-line clamp actually truncates — depends on
+  // viewport width, not character count. ResizeObserver fires once on observe,
+  // then on every width change. Skipped while expanded (clamp is off, so no overflow).
+  useEffect(() => {
+    const el = overviewRef.current
+    if (!el || overviewExpanded) return
+    const ro = new ResizeObserver(() => setOverviewOverflows(el.scrollHeight > el.clientHeight + 1))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [series?.overview, overviewExpanded])
+
+  if (loading) return <LoadingState />
+  if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
   if (!series) {
     return (
@@ -65,11 +86,11 @@ export function ShowDetailPage() {
     )
   }
 
-  const color = ratingColor(series.voteAverage)
-  const completion = series.totalEpisodes > 0 ? Math.round((series.episodesWatched / series.totalEpisodes) * 100) : 0
-  const allSeasons = Array.from({ length: series.seasons }, (_, i) => i + 1)
-  const cardStyle = { borderRadius: 10, boxShadow: cardShadow(theme.isDark) }
-  const showPoster = series.posterUrl && !posterError
+  const color = series.voteAverage == null ? undefined : ratingColor(series.voteAverage)
+  const completion = completionRate([series])
+  const allSeasons = Array.from({ length: series.seasons ?? 0 }, (_, i) => i + 1)
+  const cardStyle = baseCardStyle(theme.isDark)
+  const showPoster = series.posterUrl && failedPosterUrl !== series.posterUrl
 
   return (
     <div>
@@ -84,7 +105,7 @@ export function ShowDetailPage() {
       {/* Hero: poster left, all info + stat cards right */}
       <div style={{
         display: 'flex',
-        gap: 24,
+        gap: SPACING.xl,
         marginBottom: SECTION_GAP,
         flexDirection: screens.md ? 'row' : 'column',
         alignItems: 'flex-start',
@@ -93,7 +114,7 @@ export function ShowDetailPage() {
           <img
             src={series.posterUrl}
             alt={series.name}
-            onError={() => setPosterError(true)}
+            onError={() => setFailedPosterUrl(series.posterUrl)}
             style={{
               width: screens.xl ? 260 : screens.md ? 200 : '100%',
               maxWidth: 280,
@@ -129,14 +150,14 @@ export function ShowDetailPage() {
           {/* Title + Status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
             <Title level={3} style={{ margin: 0, lineHeight: 1.2 }}>{series.name}</Title>
-            <Tag color={STATUS_TAG_COLORS[series.status] ?? 'default'} style={{ fontSize: 12 }}>
+            <Tag color={statusTagColor(series.status)} style={{ fontSize: 12 }}>
               {series.status}
             </Tag>
           </div>
 
           {/* Meta row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-            {series.voteAverage > 0 && (
+            {series.voteAverage != null && (
               <span style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -151,7 +172,7 @@ export function ShowDetailPage() {
                 <StarFilled />{series.voteAverage.toFixed(1)}
               </span>
             )}
-            <Text type="secondary">{series.firstAirYear}</Text>
+            {series.firstAirYear != null && <Text type="secondary">{series.firstAirYear}</Text>}
             {series.ageRating && <Tag>{series.ageRating}</Tag>}
             {series.language && (
               <Text type="secondary" style={{ fontSize: 12, textTransform: 'uppercase' }}>
@@ -168,7 +189,7 @@ export function ShowDetailPage() {
           )}
 
           {/* Overview with expand/collapse */}
-          <p style={{
+          <p ref={overviewRef} style={{
             margin: '0 0 4px',
             lineHeight: 1.65,
             fontSize: 14,
@@ -181,7 +202,7 @@ export function ShowDetailPage() {
           }}>
             {series.overview}
           </p>
-          {series.overview.length > 200 && (
+          {overviewOverflows || overviewExpanded ? (
             <Button
               type="link"
               size="small"
@@ -190,61 +211,32 @@ export function ShowDetailPage() {
             >
               {overviewExpanded ? 'Show less' : 'Show more'}
             </Button>
+          ) : (
+            <div style={{ marginBottom: 10 }} />
           )}
-          {series.overview.length <= 200 && <div style={{ marginBottom: 10 }} />}
 
           {/* Genres */}
           <Space wrap size={6} style={{ marginBottom: 14 }}>
             {series.genres.map(g => (
-              <Tag key={g} color={GENRE_COLORS[g] ?? 'default'}>{g}</Tag>
+              <Tag key={g} color={genreTagColor(g)}>{g}</Tag>
             ))}
           </Space>
 
           {/* Stat cards inline */}
           <Row gutter={[16, 16]}>
-            <Col xs={12} sm={6}>
-              <Card size="small" style={cardStyle}>
-                <Statistic
-                  title="Episodes Watched"
-                  value={series.episodesWatched}
-                  suffix={`/ ${series.totalEpisodes}`}
-                  prefix={<PlayCircleOutlined />}
-                  valueStyle={{ fontSize: 20 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={12} sm={6}>
-              <Card size="small" style={cardStyle}>
-                <Statistic
-                  title="Watch Time"
-                  value={formatRuntime(series.totalRuntimeWatched)}
-                  prefix={<ClockCircleOutlined />}
-                  valueStyle={{ fontSize: 20 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={12} sm={6}>
-              <Card size="small" style={cardStyle}>
-                <Statistic
-                  title="Seasons Watched"
-                  value={series.seasonsWatched.length}
-                  suffix={`/ ${series.seasons}`}
-                  prefix={<TrophyOutlined />}
-                  valueStyle={{ fontSize: 20 }}
-                />
-              </Card>
-            </Col>
-            <Col xs={12} sm={6}>
-              <Card size="small" style={cardStyle}>
-                <Statistic
-                  title="First Aired"
-                  value={series.firstAirYear}
-                  formatter={v => String(v)}
-                  prefix={<CalendarOutlined />}
-                  valueStyle={{ fontSize: 20 }}
-                />
-              </Card>
-            </Col>
+            {[
+              { title: 'Episodes Watched', value: series.episodesWatched, suffix: `/ ${series.totalEpisodes}`, prefix: <PlayCircleOutlined /> },
+              { title: 'Watch Time', value: formatRuntime(series.totalRuntimeWatched), prefix: <ClockCircleOutlined /> },
+              { title: 'Seasons Watched', value: series.seasonsWatched.length, suffix: `/ ${series.seasons ?? '–'}`, prefix: <TrophyOutlined /> },
+              // formatter skips Statistic's thousands separator ("2,019")
+              { title: 'First Aired', value: series.firstAirYear ?? '–', prefix: <CalendarOutlined />, formatter: (v: string | number) => String(v) },
+            ].map(({ title, value, suffix, prefix, formatter }) => (
+              <Col key={title} xs={12} sm={6}>
+                <Card size="small" style={cardStyle}>
+                  <Statistic title={title} value={value} suffix={suffix} prefix={prefix} formatter={formatter} valueStyle={{ fontSize: 20 }} />
+                </Card>
+              </Col>
+            ))}
           </Row>
         </div>
       </div>
@@ -254,10 +246,10 @@ export function ShowDetailPage() {
         <Col xs={24} md={12}>
           <Card title="Show Details" size="small" style={{ ...cardStyle, height: '100%' }}>
             <Descriptions column={2}>
-              <Descriptions.Item label="Seasons">{series.seasons}</Descriptions.Item>
+              <Descriptions.Item label="Seasons">{series.seasons ?? '–'}</Descriptions.Item>
               <Descriptions.Item label="Total Episodes">{series.totalEpisodes}</Descriptions.Item>
               <Descriptions.Item label="Ep. Runtime">
-                {series.episodeRuntime ? `${series.episodeRuntime} min` : '–'}
+                {series.episodeRuntime != null ? `${series.episodeRuntime} min` : '–'}
               </Descriptions.Item>
               <Descriptions.Item label="Popularity">{series.popularity.toFixed(1)}</Descriptions.Item>
               {series.voteCount > 0 && (
@@ -294,7 +286,7 @@ export function ShowDetailPage() {
               </Text>
             </div>
 
-            {series.seasons > 0 && (
+            {allSeasons.length > 0 && (
               <div>
                 <Text type="secondary" style={{ fontSize: 13 }}>Seasons</Text>
                 <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -337,7 +329,7 @@ export function ShowDetailPage() {
             <Card title="Keywords" size="small" style={cardStyle}>
               <Space wrap size={4}>
                 {series.keywords.slice(0, 20).map(k => (
-                  <Tag key={k} color="default" style={{ fontSize: 13 }}>{k}</Tag>
+                  <Tag key={k} style={{ fontSize: 13 }}>{k}</Tag>
                 ))}
               </Space>
             </Card>

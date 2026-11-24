@@ -1,10 +1,12 @@
 import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Card, Tag, Typography } from 'antd'
-import { StarFilled, VideoCameraOutlined } from '@ant-design/icons'
+import { StarFilled } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
-import { GENRE_COLORS, ratingColor, STATUS_COLORS } from '../constants/ui'
+import { genreTagColor, ratingColor, STATUS_COLORS } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
+import { activateOnKey } from '../utils/a11y'
+import { PosterThumb } from './PosterThumb'
 
 const { Text, Title } = Typography
 
@@ -15,7 +17,7 @@ interface Props {
 export const ShowCard = memo(function ShowCard({ series }: Props) {
   const navigate = useNavigate()
   const theme = useTheme()
-  const color = ratingColor(series.voteAverage)
+  const color = series.voteAverage == null ? undefined : ratingColor(series.voteAverage)
 
   const handleSelect = () => navigate(`/shows/${series.tvId}`)
 
@@ -23,7 +25,7 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
     <Card
       hoverable
       onClick={handleSelect}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect() } }}
+      onKeyDown={activateOnKey(handleSelect)}
       tabIndex={0}
       role="button"
       aria-label={series.name}
@@ -31,19 +33,16 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
       styles={{ body: { padding: 12, display: 'flex', flexDirection: 'column', flex: 1 } }}
       cover={
         <div style={{ position: 'relative', paddingTop: '150%', overflow: 'hidden', background: theme.posterFallbackBg }}>
-          {series.posterUrl ? (
-            <img
-              src={series.posterUrl}
-              alt={series.name}
-              loading="lazy"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <VideoCameraOutlined style={{ fontSize: 40, opacity: 0.4 }} />
-            </div>
-          )}
-          {series.voteAverage > 0 && (
+          <PosterThumb
+            series={series}
+            width="100%"
+            height="100%"
+            iconSize={40}
+            bg={theme.posterFallbackBg}
+            radius={0}
+            style={{ position: 'absolute', inset: 0 }}
+          />
+          {series.voteAverage != null && (
             <Badge
               count={
                 <span style={{ background: color, color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 12, fontWeight: 700 }}>
@@ -65,11 +64,11 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
         {series.name}
       </Title>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        {series.firstAirYear} · {series.episodesWatched} eps watched
+        {series.firstAirYear ?? '–'} · {series.episodesWatched} eps watched
       </Text>
       <div style={{ marginTop: 'auto', paddingTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {series.genres.slice(0, 2).map(g => (
-          <Tag key={g} color={GENRE_COLORS[g] ?? 'default'} style={{ fontSize: 11, margin: 0 }}>
+          <Tag key={g} color={genreTagColor(g)} style={{ fontSize: 11, margin: 0 }}>
             {g}
           </Tag>
         ))}

@@ -1,24 +1,9 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTvData } from '../hooks/useTvData'
-import type { TvSeries } from '../types/series'
-
-interface TvDataContextValue {
-  data: TvSeries[]
-  loading: boolean
-  error: string | null
-  refetch: () => void
-}
-
-const TvDataContext = createContext<TvDataContextValue>({
-  data: [],
-  loading: true,
-  error: null,
-  refetch: () => {},
-})
+import { TvDataContext } from './useTvDataContext'
 
 export function TvDataProvider({ children }: { children: ReactNode }) {
-  const value = useTvData()
-  return <TvDataContext.Provider value={value}>{children}</TvDataContext.Provider>
+  // useTvData memoizes its return value, so the context value is stable across provider re-renders.
+  // (Pages still re-render on a theme change via App — this doesn't prevent that.)
+  return <TvDataContext.Provider value={useTvData()}>{children}</TvDataContext.Provider>
 }
-
-export const useTvDataContext = () => useContext(TvDataContext)

@@ -25,7 +25,6 @@ export default ts.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
-  {
-    ignores: ['dist/', 'node_modules/'],
-  }
+  // node_modules is ignored by default, dist/ is not (matters for `eslint .` / editor plugins)
+  { ignores: ['dist/'] }
 )

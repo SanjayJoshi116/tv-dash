@@ -1,70 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import Papa from 'papaparse'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TvSeries } from '../types/series'
+import { parseSeriesCsv } from '../utils/parseSeriesCsv'
 
-const REQUIRED_COLUMNS = ['Name', 'Vote Average', 'Genres', 'Status']
 const FETCH_TIMEOUT_MS = 10_000
-
-function splitList(val: string | null | undefined): string[] {
-  if (!val || String(val).trim() === '') return []
-  return String(val).split(',').map(s => s.trim()).filter(Boolean)
-}
-
-function parseNumList(val: string | null | undefined): number[] {
-  return splitList(val).map(Number).filter(n => !isNaN(n))
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRow(row: Record<string, any>): TvSeries {
-  const runtime = row['Episode Runtime']
-  return {
-    tvId: Number(row['TV ID']),
-    name: String(row['Name'] ?? ''),
-    language: String(row['Language'] ?? ''),
-    seasons: Number(row['Seasons']) || 0,
-    episodeRuntime: runtime && runtime !== 'N/A' ? Number(runtime) : null,
-    firstAirYear: Number(row['First Air Year']) || 0,
-    genres: splitList(row['Genres']),
-    creators: splitList(row['Creators']),
-    networks: splitList(row['Networks']),
-    status: String(row['Status'] ?? ''),
-    totalEpisodes: Number(row['Total Episodes']) || 0,
-    lastEpisodeAirDate: String(row['Last Episode Air Date'] ?? ''),
-    popularity: Number(row['Popularity']) || 0,
-    voteCount: Number(row['Vote Count']) || 0,
-    voteAverage: Number(row['Vote Average']) || 0,
-    actors: splitList(row['Actors/Actresses']),
-    keywords: splitList(row['Keywords/Tags']),
-    firstAirDate: String(row['First Air Date'] ?? ''),
-    overview: String(row['Overview'] ?? ''),
-    tagline: String(row['Tagline'] ?? ''),
-    posterUrl: String(row['Poster URL'] ?? ''),
-    ageRating: String(row['Age Rating'] ?? ''),
-    seasonsWatched: parseNumList(row['Seasons Watched']),
-    episodesWatched: Number(row['Episodes Watched']) || 0,
-    totalRuntimeWatched: Number(row['Total Runtime Watched (min)']) || 0,
-  }
-}
 
 export function useTvData() {
   const [data, setData] = useState<TvSeries[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const requestIdRef = useRef(0)
+  // Skipped-row warnings from the last successful parse — surfaced as a banner by AppLayout
+  const [warnings, setWarnings] = useState<string[]>([])
+  // The in-flight request's controller. A response is stale once this no longer points at
+  // its own controller (superseded by refetch, or nulled on unmount) — replaces a separate
+  // request-id counter, and StrictMode-safe since each effect run gets its own.
   const controllerRef = useRef<AbortController | null>(null)
-  const mountedRef = useRef(true)
+  // Guards a retained `refetch` called after unmount — it would otherwise install a fresh
+  // (non-stale) controller and set state on an unmounted component
+  const mountedRef = useRef(false)
 
   const fetchData = useCallback(() => {
-    const requestId = ++requestIdRef.current
+    if (!mountedRef.current) return
     controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+    const isStale = () => controllerRef.current !== controller
 
     setLoading(true)
     setError(null)
 
-    const controller = new AbortController()
-    controllerRef.current = controller
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-    const isStale = () => !mountedRef.current || requestIdRef.current !== requestId
+    let timedOut = false
+    const timeoutId = setTimeout(() => { timedOut = true; controller.abort() }, FETCH_TIMEOUT_MS)
 
     fetch('/tv_series.csv', { signal: controller.signal })
       .then(r => {
@@ -72,34 +37,21 @@ export function useTvData() {
         return r.text()
       })
       .then(text => {
-        const result = Papa.parse<Record<string, unknown>>(text, {
-          header: true,
-          skipEmptyLines: true,
-        })
-
-        if (result.errors.length > 0) {
-          throw new Error(`CSV parse error: ${result.errors[0].message}`)
-        }
-
-        if (result.data.length > 0) {
-          const cols = Object.keys(result.data[0])
-          const missing = REQUIRED_COLUMNS.filter(c => !cols.includes(c))
-          if (missing.length > 0) {
-            throw new Error(`CSV missing required columns: ${missing.join(', ')}`)
-          }
-        }
-
         if (isStale()) return
-        setData(result.data.map(mapRow))
+        const { rows, warnings } = parseSeriesCsv(text)
+        warnings.forEach(w => console.warn(w))
+        setData(rows)
+        setWarnings(warnings)
         setLoading(false)
       })
       .catch(err => {
         if (isStale()) return
-        if ((err as Error).name === 'AbortError') {
-          setError('Request timed out. Check that tv_series.csv is in the public/ folder.')
-        } else {
-          setError(String(err instanceof Error ? err.message : err))
-        }
+        // One contract for every page: on error there is no data (no stale rows from a prior load)
+        setData([])
+        setWarnings([])
+        setError(timedOut
+          ? 'Request timed out. Check that tv_series.csv is in the public/ folder.'
+          : err instanceof Error ? err.message : String(err))
         setLoading(false)
       })
       .finally(() => clearTimeout(timeoutId))
@@ -107,13 +59,17 @@ export function useTvData() {
 
   useEffect(() => {
     mountedRef.current = true
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
     return () => {
       mountedRef.current = false
       controllerRef.current?.abort()
+      controllerRef.current = null
     }
   }, [fetchData])
 
-  return { data, loading, error, refetch: fetchData }
+  // Stable identity across re-renders, so TvDataProvider can pass it straight through as the context value
+  return useMemo(
+    () => ({ data, loading, error, warnings, refetch: fetchData }),
+    [data, loading, error, warnings, fetchData]
+  )
 }

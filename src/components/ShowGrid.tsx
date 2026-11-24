@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Empty, Grid } from 'antd'
 import type { TvSeries } from '../types/series'
-import { responsiveColumns } from '../constants/ui'
+import { SPACING, responsiveColumns } from '../constants/ui'
 import { ShowCard } from './ShowCard'
 
 interface Props {
@@ -17,19 +17,17 @@ export const ShowGrid = memo(function ShowGrid({ data }: Props) {
   }
 
   return (
-    <div style={{ width: '100%' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
-          gap: 16,
-          paddingBottom: 16,
-        }}
-      >
-        {data.map(series => (
-          <ShowCard key={series.tvId} series={series} />
-        ))}
-      </div>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
+        gap: SPACING.lg,
+        paddingBottom: SPACING.lg,
+      }}
+    >
+      {data.map(series => (
+        <ShowCard key={series.tvId} series={series} />
+      ))}
     </div>
   )
 })

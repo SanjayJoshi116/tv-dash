@@ -4,7 +4,6 @@ import csv
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
-import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
@@ -25,123 +24,156 @@ retry_strategy = Retry(
 )
 adapter = HTTPAdapter(max_retries=retry_strategy)
 session.mount("https://", adapter)
+# Sent with every request — requests also URL-encodes params (e.g. a '&' in a search term)
+session.headers.update({'User-Agent': 'Mozilla/5.0'})
+session.params = {"api_key": api_key}
 
-headers = {'User-Agent': 'Mozilla/5.0'}
+BASE_URL = "https://api.themoviedb.org/3"
+# The file the dashboard fetches — resolved from this script, not the working directory
+CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "tv_series.csv")
+
+# CSV contract with the dashboard (src/utils/parseSeriesCsv.ts) — column order of new files
+FIELDNAMES = [
+    "TV ID", "Name", "Language", "Seasons", "Episode Runtime", "First Air Year",
+    "Genres", "Creators", "Networks", "Status", "Total Episodes", "Last Episode Air Date",
+    "Popularity", "Vote Count", "Vote Average", "Actors/Actresses", "Keywords/Tags",
+    "First Air Date", "Overview", "Tagline", "Poster URL", "Age Rating",
+    "Seasons Watched", "Episodes Watched", "Total Runtime Watched (min)",
+]
+TABLE_COLUMNS = FIELDNAMES[:6]  # shown in the search table (display only)
 
 # Global variables for pagination
 current_page = 1
 total_pages = 1
+loading = False  # a search/details load is running — new searches are ignored until it ends
 
-def search_tv(api_key, tv_name, page=1):
-    url = f"https://api.themoviedb.org/3/search/tv?api_key={api_key}&query={tv_name}&page={page}"
+def _tmdb_get(path, default, error_title="Error", error_msg="Failed to fetch data", quiet=False, **params):
+    """GET a TMDB endpoint; on failure show an error (unless quiet) and return `default`.
+    Pass quiet=True from worker threads — Tk dialogs must only be opened on the main thread."""
     try:
-        response = session.get(url, headers=headers, timeout=10)
+        response = session.get(f"{BASE_URL}{path}", params=params, timeout=10)
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Connection Error", f"Failed to fetch data from TMDB:\n{e}")
-        return {"results": [], "total_pages": 1}
+    except (requests.exceptions.RequestException, ValueError) as e:  # ValueError: non-JSON body
+        if not quiet:
+            messagebox.showerror(error_title, f"{error_msg}:\n{e}")
+        return default
 
-def fetch_tv_details(api_key, tv_id):
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}?api_key={api_key}"
-    try:
-        response = session.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Error", f"Failed to fetch details:\n{e}")
-        return {}
+def search_tv(tv_name, page=1):
+    return _tmdb_get("/search/tv", {"results": [], "total_pages": 1},
+                     "Connection Error", "Failed to fetch data from TMDB", query=tv_name, page=page)
 
-def fetch_tv_credits(api_key, tv_id):
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}/credits?api_key={api_key}"
-    try:
-        response = session.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Error", f"Failed to fetch credits:\n{e}")
-        return {}
+# Successful detail responses by TV ID. One request carries credits, keywords and US rating
+# (append_to_response), and the save path reuses what the search table already fetched.
+_details_cache = {}
 
-def fetch_tv_keywords(api_key, tv_id):
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}/keywords?api_key={api_key}"
-    try:
-        response = session.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json().get("results", [])
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Error", f"Failed to fetch keywords:\n{e}")
-        return []
+def fetch_tv_details(tv_id, quiet=False):
+    key = str(tv_id)
+    if key not in _details_cache:
+        details = _tmdb_get(f"/tv/{tv_id}", None, error_msg="Failed to fetch details", quiet=quiet,
+                            append_to_response="credits,keywords,content_ratings")
+        if details is None:
+            return {}
+        _details_cache[key] = details
+    return _details_cache[key]
 
-def fetch_season_details(api_key, tv_id, season_number):
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}/season/{season_number}?api_key={api_key}"
-    try:
-        response = session.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.json().get("episodes", [])
-    except requests.exceptions.RequestException as e:
-        messagebox.showerror("Error", f"Failed to fetch season {season_number} details:\n{e}")
-        return []
+def fetch_season_details(tv_id, season_number):
+    """Episode list, or None if the fetch failed (error already shown) — not [], which would
+    record the season as watched with 0 episodes."""
+    data = _tmdb_get(f"/tv/{tv_id}/season/{season_number}", None,
+                     error_msg=f"Failed to fetch season {season_number} details")
+    return None if data is None else data.get("episodes", [])
 
-def fetch_tv_certification(api_key, tv_id):
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}/content_ratings?api_key={api_key}"
+def us_certification(details):
+    for entry in details.get("content_ratings", {}).get("results", []):
+        if entry.get("iso_3166_1") == "US":
+            return entry.get("rating") or ""
+    return ""
+
+# Unknown values are written as '' (not 'N/A') — the dashboard reads blank as unknown
+def field(details, key):
+    value = details.get(key)
+    return "" if value is None else value
+
+def new_row(tv_id, details):
+    """CSV row for a show not yet in the file (watch-progress columns filled in by the caller)."""
+    run_times = details.get("episode_run_time") or []
+    poster_path = details.get("poster_path")
+    return {
+        "TV ID": tv_id,
+        "Name": field(details, "name"),
+        "Language": field(details, "original_language"),
+        "Seasons": field(details, "number_of_seasons"),
+        "Episode Runtime": run_times[0] if run_times else "",
+        "First Air Year": (details.get("first_air_date") or "").split("-")[0],
+        "Genres": names(details.get("genres", [])),
+        "Creators": names(details.get("created_by", [])),
+        "Networks": names(details.get("networks", [])),
+        "Status": field(details, "status"),
+        "Total Episodes": field(details, "number_of_episodes"),
+        "Last Episode Air Date": field(details, "last_air_date"),
+        "Popularity": field(details, "popularity"),
+        "Vote Count": field(details, "vote_count"),
+        "Vote Average": field(details, "vote_average"),
+        "Actors/Actresses": names(details.get("credits", {}).get("cast", []), limit=5),
+        "Keywords/Tags": names(details.get("keywords", {}).get("results", [])),
+        "First Air Date": field(details, "first_air_date"),
+        "Overview": field(details, "overview"),
+        "Tagline": field(details, "tagline"),
+        "Poster URL": f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else "",
+        "Age Rating": us_certification(details),
+    }
+
+def names(items, limit=None):
+    return ", ".join(item["name"] for item in items[:limit])
+
+def load_rows():
+    """(fieldnames, rows) of the existing CSV, or (None, []) if there is none."""
     try:
-        response = session.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        for entry in response.json().get("results", []):
-            if entry.get("iso_3166_1") == "US":
-                return entry.get("rating", "N/A")
-    except requests.exceptions.RequestException:
-        pass
-    return "N/A"
+        with open(CSV_PATH, mode="r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            return reader.fieldnames, list(reader)
+    except FileNotFoundError:
+        return None, []
 
 def get_existing_entry(tv_id):
-    try:
-        with open("tv_series.csv", mode="r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                if row.get("TV ID") == str(tv_id):
-                    return row
-    except FileNotFoundError:
-        pass
-    return None
+    _, rows = load_rows()
+    return next((row for row in rows if row.get("TV ID") == str(tv_id)), None)
 
 def update_csv_row(tv_id, updated_row):
-    rows = []
-    fieldnames = None
-    try:
-        with open("tv_series.csv", mode="r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            fieldnames = reader.fieldnames
-            for row in reader:
-                if row.get("TV ID") == str(tv_id):
-                    rows.append(updated_row)
-                else:
-                    rows.append(row)
-    except FileNotFoundError:
+    fieldnames, rows = load_rows()
+    if fieldnames is None:
         return
-    with open("tv_series.csv", mode="w", newline="", encoding="utf-8") as file:
+    rows = [updated_row if row.get("TV ID") == str(tv_id) else row for row in rows]
+    with open(CSV_PATH, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
 def append_to_csv(tv_details):
-    fieldnames = list(tv_details.keys())
-    with open("tv_series.csv", mode="a", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        if file.tell() == 0:
+    # Follow the existing file's header (an older or hand-edited file may differ from FIELDNAMES)
+    # so the new row's values land under the right columns; FIELDNAMES only for a new file
+    header, _ = load_rows()
+    if header:
+        missing = [c for c in FIELDNAMES if c not in header]
+        if missing:
+            messagebox.showwarning("CSV Columns", "tv_series.csv has no column for: " + ", ".join(missing)
+                                   + "\nThose values are not saved for this show.")
+    else:
+        os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
+    with open(CSV_PATH, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=header or FIELDNAMES, restval="", extrasaction="ignore")
+        if not header:
             writer.writeheader()
         writer.writerow(tv_details)
     messagebox.showinfo("Success", "TV series details saved to CSV file")
 
 def set_loading(state):
-    if state:
-        status_label.config(text="Loading...")
-        for btn in [search_button, next_page_button, prev_page_button]:
-            btn.config(state="disabled")
-    else:
-        status_label.config(text="")
-        for btn in [search_button, next_page_button, prev_page_button]:
-            btn.config(state="normal")
+    global loading
+    loading = state
+    status_label.config(text="Loading..." if state else "")
+    for btn in [search_button, next_page_button, prev_page_button]:
+        btn.config(state="disabled" if state else "normal")
 
 def show_season_panel(seasons, already_saved, on_confirm):
     real_seasons = [s for s in seasons if s.get("season_number", 0) != 0]
@@ -159,14 +191,14 @@ def show_season_panel(seasons, already_saved, on_confirm):
     tk.Label(popup, text="Seasons Watched", font=FONT_BOLD).pack(pady=(10, 4))
     ttk.Separator(popup, orient="horizontal").pack(fill="x", padx=6, pady=(0, 6))
 
-    vars_ = {}
+    vars_ = {}       # new (selectable) seasons only: sn -> (var, ep_count)
+    saved_vars = []  # disabled, pre-checked vars for saved seasons
     select_all_var = tk.BooleanVar()
 
     def toggle_select_all():
         state = select_all_var.get()
-        for sn, (var, ep_count, is_saved) in vars_.items():
-            if not is_saved:
-                var.set(state)
+        for var, _ in vars_.values():
+            var.set(state)
 
     tk.Checkbutton(
         popup,
@@ -182,36 +214,25 @@ def show_season_panel(seasons, already_saved, on_confirm):
     for season in real_seasons:
         sn = season["season_number"]
         ep_count = season.get("episode_count", 0)
-        var = tk.BooleanVar()
+        saved = sn in already_saved
+        var = tk.BooleanVar(value=saved)
+        tk.Checkbutton(
+            popup,
+            text=f"Season {sn}  ({ep_count} eps)  [saved]" if saved else f"Season {sn}  ({ep_count} episodes)",
+            variable=var,
+            anchor="w",
+            font=FONT,
+            **({"state": "disabled", "fg": "gray"} if saved else {})
+        ).pack(fill="x", padx=12)
 
-        if sn in already_saved:
-            var.set(True)
-            tk.Checkbutton(
-                popup,
-                text=f"Season {sn}  ({ep_count} eps)  [saved]",
-                variable=var,
-                state="disabled",
-                anchor="w",
-                fg="gray",
-                font=FONT
-            ).pack(fill="x", padx=12)
+        if saved:
+            saved_vars.append(var)
         else:
-            tk.Checkbutton(
-                popup,
-                text=f"Season {sn}  ({ep_count} episodes)",
-                variable=var,
-                anchor="w",
-                font=FONT
-            ).pack(fill="x", padx=12)
-
-        vars_[sn] = (var, ep_count, sn in already_saved)
+            vars_[sn] = (var, ep_count)
+    popup.saved_vars = saved_vars  # outlive this function — a freed BooleanVar unchecks its box
 
     def on_confirm_click():
-        selected = {
-            sn: ep_count
-            for sn, (var, ep_count, is_saved) in vars_.items()
-            if var.get() and not is_saved
-        }
+        selected = {sn: ep_count for sn, (var, ep_count) in vars_.items() if var.get()}
         popup.destroy()
         on_confirm(selected)
 
@@ -223,9 +244,11 @@ def show_season_panel(seasons, already_saved, on_confirm):
     ).pack(pady=12)
 
 def fetch_and_display_tv(tv_name):
-    global current_page, total_pages
+    global total_pages
+    if loading:  # Enter pressed mid-load: the running load still owns the table
+        return
     set_loading(True)
-    response = search_tv(api_key, tv_name, current_page)
+    response = search_tv(tv_name, current_page)
     tv_series = response.get("results", [])
     total_pages = response.get("total_pages", 1)
 
@@ -237,8 +260,7 @@ def fetch_and_display_tv(tv_name):
     for widget in table_frame.winfo_children():
         widget.destroy()
 
-    columns = ("TV ID", "Name", "Language", "Seasons", "Episode Runtime", "First Air Year")
-    tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+    tree = ttk.Treeview(table_frame, columns=TABLE_COLUMNS, show="headings")
 
     sort_reverse = {}
 
@@ -252,7 +274,7 @@ def fetch_and_display_tv(tv_name):
             tree.move(iid, "", i)
         sort_reverse[col] = not sort_reverse.get(col, False)
 
-    for col in columns:
+    for col in TABLE_COLUMNS:
         tree.heading(col, text=col, command=lambda c=col: sort_column(c))
         tree.column(col, width=150, anchor="center")
 
@@ -271,22 +293,35 @@ def fetch_and_display_tv(tv_name):
         item_map[str(tv_id)] = iid
 
     def fetch_all_details():
-        with ThreadPoolExecutor(max_workers=6) as executor:
-            futures = {
-                executor.submit(fetch_tv_details, api_key, tid): (tid, iid)
-                for tid, iid in item_map.items()
-            }
-            for future in as_completed(futures):
-                tid, iid = futures[future]
-                details = future.result()
-                seasons = details.get("number_of_seasons", "N/A")
-                run_times = details.get("episode_run_time", [])
-                runtime = run_times[0] if run_times else "N/A"
-                root.after(0, lambda i=iid, s=seasons, r=runtime: (
-                    tree.set(i, "Seasons", s),
-                    tree.set(i, "Episode Runtime", r)
-                ))
-        root.after(0, lambda: set_loading(False))
+        # Worker thread: no dialogs here (quiet fetches) — failures are reported once on the main thread
+        failed = 0
+        try:
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                futures = {
+                    executor.submit(fetch_tv_details, tid, True): (tid, iid)
+                    for tid, iid in item_map.items()
+                }
+                for future in as_completed(futures):
+                    tid, iid = futures[future]
+                    try:
+                        details = future.result()
+                    except Exception:
+                        details = {}
+                    if not details:
+                        failed += 1
+                        continue
+                    seasons = details.get("number_of_seasons", "N/A")
+                    run_times = details.get("episode_run_time", [])
+                    runtime = run_times[0] if run_times else "N/A"
+                    root.after(0, lambda i=iid, s=seasons, r=runtime: (
+                        tree.set(i, "Seasons", s),
+                        tree.set(i, "Episode Runtime", r)
+                    ))
+        finally:
+            root.after(0, lambda: set_loading(False))  # always re-enable the buttons
+            if failed:
+                root.after(0, lambda: messagebox.showerror(
+                    "Error", f"Failed to fetch details for {failed} show(s). They are fetched again on save."))
 
     threading.Thread(target=fetch_all_details, daemon=True).start()
 
@@ -303,18 +338,9 @@ def fetch_and_display_tv(tv_name):
             values = tree.item(item, "values")
             tv_id = values[0]
 
-            details = fetch_tv_details(api_key, tv_id)
-            credits = fetch_tv_credits(api_key, tv_id)
-            keywords = fetch_tv_keywords(api_key, tv_id)
-            certification = fetch_tv_certification(api_key, tv_id)
-
-            genres = ", ".join([g["name"] for g in details.get("genres", [])])
-            creators = ", ".join([c["name"] for c in details.get("created_by", [])])
-            networks = ", ".join([n["name"] for n in details.get("networks", [])])
-            cast = ", ".join([m["name"] for m in credits.get("cast", [])[:5]])
-            keywords_list = ", ".join([k["name"] for k in keywords])
-            poster_path = details.get("poster_path", "")
-            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else "N/A"
+            details = fetch_tv_details(tv_id)  # cached from the table fetch; includes credits etc.
+            if not details:  # fetch failed (error already shown) — don't claim all seasons are saved
+                continue
             seasons = details.get("seasons", [])
 
             existing = get_existing_entry(tv_id)
@@ -324,23 +350,28 @@ def fetch_and_display_tv(tv_name):
             else:
                 already_saved = set()
 
-            def do_save(selected_seasons, tv_id=tv_id, values=values, details=details,
-                        genres=genres, creators=creators, networks=networks,
-                        cast=cast, keywords_list=keywords_list, existing=existing,
-                        already_saved=already_saved, certification=certification,
-                        poster_url=poster_url):
+            def do_save(selected_seasons, tv_id=tv_id, details=details, existing=existing,
+                        already_saved=already_saved):
                 if not selected_seasons:
                     messagebox.showinfo("No Selection", "No new seasons were selected.")
                     return
 
                 episodes_watched = 0
                 total_runtime_min = 0
+                fetched = []
                 for sn in selected_seasons:
-                    episodes = fetch_season_details(api_key, tv_id, sn)
+                    episodes = fetch_season_details(tv_id, sn)
+                    if episodes is None:  # failed — leave it unsaved so it can be re-added later
+                        continue
+                    fetched.append(sn)
                     episodes_watched += len(episodes)
                     total_runtime_min += sum(ep.get("runtime") or 0 for ep in episodes)
+                failed = sorted(set(selected_seasons) - set(fetched))
+                if not fetched:
+                    messagebox.showwarning("Not Saved", f"Could not fetch season(s) {failed}. Nothing was saved.")
+                    return
 
-                new_saved = already_saved | set(selected_seasons.keys())
+                new_saved = already_saved | set(fetched)
                 seasons_watched_str = ",".join(str(s) for s in sorted(new_saved))
 
                 if existing:
@@ -351,45 +382,33 @@ def fetch_and_display_tv(tv_name):
                     updated_row["Total Runtime Watched (min)"] = prev_runtime + total_runtime_min
                     updated_row["Seasons Watched"] = seasons_watched_str
                     update_csv_row(tv_id, updated_row)
-                    added = sorted(selected_seasons.keys())
-                    messagebox.showinfo("Updated", f"Season(s) {added} added. CSV updated.")
+                    msg = f"Season(s) {sorted(fetched)} added. CSV updated."
+                    if failed:
+                        msg += f"\nSeason(s) {failed} failed to fetch and were not saved."
+                    messagebox.showinfo("Updated", msg)
                 else:
+                    # From the full details, not the table cells (those may still show '—')
                     tv_details = {
-                        "TV ID": tv_id,
-                        "Name": values[1],
-                        "Language": values[2],
-                        "Seasons": values[3],
-                        "Episode Runtime": values[4],
-                        "First Air Year": values[5],
-                        "Genres": genres,
-                        "Creators": creators,
-                        "Networks": networks,
-                        "Status": details.get("status", "N/A"),
-                        "Total Episodes": details.get("number_of_episodes", "N/A"),
-                        "Last Episode Air Date": details.get("last_air_date", "N/A"),
-                        "Popularity": details.get("popularity", "N/A"),
-                        "Vote Count": details.get("vote_count", "N/A"),
-                        "Vote Average": details.get("vote_average", "N/A"),
-                        "Actors/Actresses": cast,
-                        "Keywords/Tags": keywords_list,
-                        "First Air Date": details.get("first_air_date", "N/A"),
-                        "Overview": details.get("overview", "N/A"),
-                        "Tagline": details.get("tagline", "N/A"),
-                        "Poster URL": poster_url,
-                        "Age Rating": certification,
+                        **new_row(tv_id, details),
                         "Seasons Watched": seasons_watched_str,
                         "Episodes Watched": episodes_watched,
-                        "Total Runtime Watched (min)": total_runtime_min
+                        "Total Runtime Watched (min)": total_runtime_min,
                     }
                     append_to_csv(tv_details)
+                    if failed:
+                        messagebox.showwarning("Partly Saved", f"Season(s) {failed} failed to fetch and were not saved.")
 
             show_season_panel(seasons, already_saved, do_save)
 
     tree.pack(fill=tk.BOTH, expand=True)
     save_button.config(command=save_selected_to_csv)
 
+# Paging handlers check `loading` before touching current_page: fetch_and_display_tv drops a
+# call made mid-load, and a page change made first would leave the counter out of sync with the table
 def on_search_click():
     global current_page
+    if loading:
+        return
     tv_name = entry.get()
     if not tv_name:
         messagebox.showwarning("Input Required", "Please enter a TV series name")
@@ -398,7 +417,9 @@ def on_search_click():
     fetch_and_display_tv(tv_name)
 
 def on_next_page_click():
-    global current_page, total_pages
+    global current_page
+    if loading:
+        return
     if current_page < total_pages:
         current_page += 1
         fetch_and_display_tv(entry.get())
@@ -407,6 +428,8 @@ def on_next_page_click():
 
 def on_prev_page_click():
     global current_page
+    if loading:
+        return
     if current_page > 1:
         current_page -= 1
         fetch_and_display_tv(entry.get())
@@ -419,16 +442,16 @@ root.title("TMDB TV Series Search")
 root.geometry("1100x660")
 root.minsize(800, 500)
 
-FONT = ("TkDefaultFont", 12)
-FONT_BOLD = ("TkDefaultFont", 12, "bold")
+FONT_FAMILY = "TkDefaultFont"
+FONT = (FONT_FAMILY, 12)
+FONT_BOLD = (FONT_FAMILY, 12, "bold")
 
 style = ttk.Style()
-style.configure("Treeview", font=("TkDefaultFont", 11), rowheight=28)
-style.configure("Treeview.Heading", font=("TkDefaultFont", 11, "bold"))
+style.configure("Treeview", font=(FONT_FAMILY, 11), rowheight=28)
+style.configure("Treeview.Heading", font=(FONT_FAMILY, 11, "bold"))
 
-entry_label = tk.Label(root, text="Enter TV Series Name:", font=FONT)
-entry_label.pack(pady=(10, 2))
-entry = tk.Entry(root, width=45, font=("TkDefaultFont", 13))
+tk.Label(root, text="Enter TV Series Name:", font=FONT).pack(pady=(10, 2))
+entry = tk.Entry(root, width=45, font=(FONT_FAMILY, 13))
 entry.pack(ipady=5)
 entry.bind("<Return>", lambda e: on_search_click())
 
@@ -438,15 +461,10 @@ search_button.pack(pady=(6, 2))
 status_label = tk.Label(root, text="", fg="gray", font=FONT)
 status_label.pack()
 
-# Content area: table on the left, season panel on the right
-content_frame = tk.Frame(root)
-content_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 0))
+table_frame = tk.Frame(root)
+table_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 0))
 
-table_frame = tk.Frame(content_frame)
-table_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-
-save_button = tk.Button(root, text="Save to CSV", state="normal", font=FONT)
+save_button = tk.Button(root, text="Save to CSV", font=FONT)
 save_button.pack(pady=4)
 
 nav_frame = tk.Frame(root)

@@ -1,5 +1,301 @@
 # Changelog
 
+## [0.4.11] — 2026-11-24
+
+Whole-project pass over the uncommitted v0.4.x work (simplify, then code-review).
+
+### Simplify
+
+- **New helpers:** `src/utils/lookup.ts` (own-key `lookup`, was private in `ui.ts` and hand-inlined in `derive.ts` / `App.tsx`); `cardStyle(isDark)` in `ui.ts` (radius + shadow pair, was copied 8×); `maxBy(data, pick)` in `derive.ts` (Dashboard Top Rated / Newest — was filter + full sort for one row)
+- **ShowsPage:** search text lowercased once per show (memoized on `data`), not per keystroke; genre/status sets memoized on `data` (genres via `uniqueGenres`)
+- **DashboardPage:** Highlights cards reuse `ShowRowCard` (new `thumb` / `header` / `ariaLabel` / `style` / `padding` props — one copy of the clickable-card a11y wiring); stat values in one `useMemo`
+- **ShowDetailPage:** poster error is URL-keyed like `PosterThumb` (no reset needed); completion via `completionRate([series])`
+- **useTvData** memoizes its return value; `TvDataProvider` passes it straight through (field list no longer duplicated)
+- `StatsBar` calls `totalYearsWatched` again (was inlined, leaving the helper dead); `firstAirYear` checks use `!= null`
+
+### Fixed
+
+- **`series-search.py`:** Enter / Next / Prev during a load changed the page counter while the request was dropped — counter and table went out of sync (regression from 0.4.10's `loading` guard)
+- **`series-search.py`:** a failed season fetch saved the season as watched with 0 episodes / 0 min, and it could never be re-added. Failed seasons are now skipped and reported; nothing is saved if all fail
+- **`derive.ts` `completionByGenre`:** plain `{}` map indexed by CSV genre — `__proto__` wrote `NaN` onto `Object.prototype`, `constructor` vanished. Now `Object.create(null)`
+- **Parser:** `Seasons` must be an integer ≤ 1000 (`seasonCount`) — `1e7` froze Show Detail, `2.5` showed "2 / 2.5"; `Episode Runtime` ≤ 0 → `null` (`-5 min` was shown)
+- `languageDistribution` / `ageRatingDistribution` / Show Detail runtime use `!= null`, not truthiness
+- `antd` range raised to `^5.25.0` (`Tabs` `destroyOnHidden` needs 5.25; worked only via the lock)
+
+### Tests
+
+- Season count / runtime normalization, `completionByGenre` inherited-key genres — 77 total
+
+## [0.4.10] — 2026-11-24
+
+Review pass over everything outside `src/` — `series-search.py` and config (simplify, code-review, security-review). Completes the module-by-module review.
+
+### CSV Generator (`series-search.py`)
+
+- **Writes `public/tv_series.csv` directly** — path resolved from the script's location, not the working directory (no manual copy step)
+- **Unknown values written as `''`**, not `'N/A'` (a `N/A` poster URL caused a broken image request). Existing rows untouched; the dashboard handles both
+- **Appends follow the existing file's header** (warns about missing columns) — an older or hand-edited file got values under the wrong columns
+- **Fixed:** already-saved seasons showed unchecked in the season picker (regression from this pass's simplify step: their `BooleanVar`s were garbage-collected)
+- **Fixed:** worker threads opened Tk error dialogs (unsupported — could freeze/crash or stack 20 dialogs); now one summary dialog on the main thread
+- **Fixed:** Enter during a load started an overlapping search (stale thread re-enabled buttons) — `loading` flag
+- **Fixed:** saving before the background fetch finished wrote `—` as Seasons / Episode Runtime — new rows built from TMDB details (`new_row()`), not table cells
+- **Fixed:** an unexpected error in the details thread left the buttons disabled for the session (`try/finally`)
+- **Fixed:** a failed details request showed "All seasons already saved"
+- One request per series: details + credits + keywords + US rating via `append_to_response`, cached from the search table's background fetch (was 4 extra calls on save)
+- Search term passed via `params=` (URL-encoded — a `&` broke the query); API key / User-Agent set once on the session
+- Cleanup: single `_tmdb_get` helper (was 6 copies), `FIELDNAMES` column contract, `load_rows()`, `names()`, dead `import time` / wrapper frame removed
+
+### Config
+
+- `tsconfig.node.json` emits to `node_modules/.tmp` (`outDir`) — `tsc -b` no longer drops `vite.config.js` / `.d.ts` into the root (`noEmit` is rejected for a referenced project, TS6310); dropped redundant `allowSyntheticDefaultImports`
+- `vitest.config.ts` merges `vite.config.ts`; default test environment is `node` — DOM tests opt in with `// @vitest-environment jsdom`
+- Removed unused `@testing-library/user-event` and `resolveJsonModule`; ESLint `ignores` reduced to `dist/`
+
+### Security Review
+
+- No findings — API key never written to the CSV or logged (it can appear in a local error dialog, as before); fixed CSV path; `csv.DictWriter` quoting; no subprocess / eval / pickle
+
+## [0.4.9] — 2026-11-24
+
+Review pass over `src/types/` (simplify, code-review, security-review).
+
+### Unknown Values (`TvSeries`)
+
+- `firstAirYear`, `voteAverage`, `seasons`, `language`, `ageRating` are now nullable. `parseSeriesCsv` normalizes "unknown" once: `posNum` (blank / non-numeric / ≤ 0 → `null`; TMDB's `0.0` = no votes) and `optStr` (blank / `N/A` → `null`). Consumers check `!= null` instead of scattered `> 0` / truthy / `=== 'N/A'` guards
+- Fixed displays: year **"0"** (ShowCard, Dashboard, Show Detail), **"★ 0.0"** for an unrated show (Dashboard Not Started list), **"Seasons Watched 2 / 0"**, and an **"N/A"** age-rating / language tag on Show Detail (charts already excluded it) — now `'–'` or hidden
+- New `compareDescNullsLast`: unrated / unknown-year shows sort last in Rating ↓ / Year ↓ and the Dashboard lists
+- `Seasons Watched` deduped, only positive integers kept — `"1,1,2"` showed "3 / 2" and landed in the wrong depth bucket
+- `languageDistribution` uses an own-key lookup on `LANGUAGE_NAMES`
+
+### Types
+
+- New `NameValue` / `NameCount` row types replace 7 inline `{ name, value|count }[]` shapes (derive distributions, `AnimatedPie`)
+- `Filters` / `SortKey` moved from `FilterBar.tsx` to new `src/types/filters.ts`; `NumericSortKey` restricted to number-typed `TvSeries` fields (removes the `as number` cast in ShowsPage's sort); `Filters.status` is `string` with `''` documented as "no filter"
+- Sort labels are a `Record<SortKey, string>` in `ui.ts` — the single source for FilterBar's options and ShowsPage's saved-value check (was 3 copies); a new `SortKey` without a label fails to compile
+
+### Tests
+
+- Parser: blank/0 → null, N/A → null, Seasons Watched dedupe; derive: `compareDescNullsLast`, `constructor` language code; fixtures moved from `0`/`'N/A'` to `null` — 74 total
+
+### Security Review
+
+- No findings — saved `sortBy` validated against the fixed sort keys before use as a property key; parser helpers only produce numbers / strings / null; own-key lookups; no unsafe sinks
+
+## [0.4.8] — 2026-11-24
+
+Review pass over `src/constants/` (simplify, code-review, security-review).
+
+### Constants (`ui.ts`)
+
+- **One status table:** private `STATUSES` (`{ hex, tag }` per status, `as const satisfies`) replaces two hand-synced maps; `STATUS_COLORS` / `STATUS_TAG_COLORS` derive from it and are typed `Record<KnownStatus, string>`, so a mistyped literal key fails to compile
+- New helpers for CSV-derived keys: `statusHex(name, fallback)`, `statusTagColor(name)`, `genreTagColor(g)` (`GENRE_COLORS` now private), `sortStatuses(names)`. Lookups are own-key only — a status/genre like `constructor` or `toString` no longer returns a built-in function instead of the fallback
+- `ratingColor` / `completionColor` built from one `tierColor(high, mid)` helper
+- `avgRatingColor` removed: `avgRating()` now returns `number | null` (was a formatted string with a `'–'` sentinel that the color helper parsed back); StatsBar and Dashboard format (`toFixed(1)` / `'–'`) and color it at the display point. Display unchanged
+- **Canceled red unified:** hex `#ff4d4f` → `#f5222d`, matching its `red` Tag preset (and the red in rating/completion colors)
+
+### Status Display
+
+- **Unknown statuses** get a theme chart color on both Dashboard and Statistics (`statusHex`) — Dashboard drew them in Ended grey
+- **Status filter** options built from the statuses in the loaded data (like genres), known statuses first in table order, unknown ones alphabetically — no longer offers statuses that always give 0 results, and an unexpected status (e.g. `Cancelled`) is selectable
+
+### Derive
+
+- The 8 count maps use `Object.create(null)`, so a `constructor` / `__proto__` value is counted like any other string
+
+### Tests
+
+- New `src/constants/ui.test.ts` (tier colors, Canceled red, unknown-status fallback, inherited-key lookups, status ordering); `avgRating` tests updated for `number | null`; `statusDistribution` with a `constructor` status — 69 total
+
+### Security Review
+
+- No findings — color helpers only ever return values from the static tables or a theme fallback (never the CSV string); own-key lookups; CSV status text rendered as React text in Select options; no unsafe sinks in `src/`
+
+## [0.4.7] — 2026-11-24
+
+Security review of `src/utils/` — no findings, no code changes. Completes the Utils review (simplify 0.4.5, code-review 0.4.6).
+
+### Security Review
+
+- CSV fields become only strings, numbers or lists — no `eval`/`Function`/`dynamicTyping`; a `__proto__` header only touches that one Papa row object, and `toSeries` copies fixed keys into a new object
+- `CsvWarningBanner` renders CSV-derived text (show names, Papa messages) as React text — no `dangerouslySetInnerHTML` anywhere in `src/`
+- `posterUrl` only reaches `<img src>` (no `javascript:` execution); no `href` built from CSV data
+- `settings.ts`: `__proto__` in stored JSON stays an own property; non-object/array values rejected; callers type-check each field
+- Warnings logged to the console hold show names and parse errors only — no secrets or PII
+
+## [0.4.6] — 2026-11-24
+
+Code-review pass over `src/utils/`. All 5 findings fixed.
+
+### CSV Loading
+
+- **Skipped rows are visible:** new `CsvWarningBanner` (dismissible antd warning `Alert`) above every page lists the first 3 skipped-row warnings, the rest go to the console. Before, they were console-only, so shows could silently vanish (e.g. `series-search.py` appending rows with a different column count). `useTvData` now returns `warnings` (cleared on error); `AppLayout` reads them from context. Dismissal is tied to the warnings array, so a reload that still skips rows shows the banner again
+- **Every row skipped is fatal:** `CSV has no valid rows — all N skipped. First: …` shows the error screen instead of the "no data" empty state
+- **Empty file:** `delimiter: ','` passed to Papa — an empty `tv_series.csv` showed `CSV parse error: Unable to auto-detect delimiting character` instead of the Dashboard empty state
+- **Duplicate TV IDs** skipped with a warning (first one kept) — they gave duplicate React keys, an unreachable second `/shows/:id`, and double-counted stats
+- Warnings say `record N` (Nth data row) instead of a file line number, which was wrong once an earlier Overview held a quoted newline
+
+### Charts
+
+- `truncate()` counts code points, so an emoji in a chart label is never cut in half; `max` clamped to 2 so the result is never longer than the input
+
+### Tests
+
+- 6 new tests (record numbering across a multi-line field, duplicate IDs, all-rows-skipped fatal, empty/header-only file, emoji truncation, `max < 2`), `useTvData` checks the exposed `warnings` — 63 total
+
+## [0.4.5] — 2026-11-24
+
+Simplify pass over `src/utils/` (reuse, simplification, efficiency, altitude). No behavior change. Code-review and security-review of `src/utils/` still to do.
+
+### Findings
+
+- Reuse, efficiency, altitude: nothing to fix. `truncate`, `activateOnKey`, `formatRuntime`, `parseSeriesCsv` and `settings.ts` are each the single implementation and used at every call site. `formatRuntime` rounding (display time, not parse time) and the `getSettings` plain-object check (at the storage boundary) are at the right layer
+- `REQUIRED_COLUMNS` (`parseSeriesCsv.ts`) and the fixture's `HEADER` no longer exported — nothing imported them
+
+### Tests
+
+- `parseSeriesCsv.fixture.ts`: `VALID_CSV` built with `csv(VALID_ROW)` instead of repeating its body; new `withId(id, row?)` helper replaces the `VALID_ROW.replace(/^1,/, …)` regex copied 5× across `parseSeriesCsv.test.ts` and `useTvData.test.ts`
+- Still 57 tests
+
+### Tooling
+
+- `.gitignore`: `vite.config.js` / `vite.config.d.ts` — `tsc -b` emits them from `tsconfig.node.json` (no `noEmit`)
+
+### Skipped (intentional)
+
+- Sidebar's own `tvdash-sidebar` key not folded into `settings.ts` (intentional isolation; would lose saved state)
+- `Math.round(mins / 60)` repeated 4× — too small for a helper
+- Moving `truncate` / `formatRuntime` to a `format.ts` — outside this pass
+
+## [0.4.4] — 2026-11-24
+
+Review pass over `src/hooks/` (simplify, code-review, security-review). Includes a fix for a regression introduced in 0.4.3.
+
+### CSV Loading
+
+- **Regression fix (from 0.4.3):** a broken quote in `tv_series.csv` is fatal again. 0.4.3 skipped *any* row-level parse error, but a bad quote makes PapaParse swallow every later line into one field and reports its `row` off by one (counting the header) — so the corrupted row was kept and the rest of the file silently vanished. Now only `FieldMismatch` (wrong field count) skips a row; `Quotes`/`Delimiter` errors fail the load with `CSV parse error`
+- Parsing moved out of the hook into pure `src/utils/parseSeriesCsv.ts` (`parseSeriesCsv(text) → { rows, warnings }`); `useTvData` only fetches, logs warnings, and owns loading/error state (138 → ~65 lines)
+- Row mapping returns `null` for an invalid `TV ID` (the rule lived half in `mapRow`, half in the caller); numeric fields go through one `num(val, fallback)` helper — a garbage `Episode Runtime` now becomes `null` instead of `NaN`
+- Rows typed as `Record<string, string | undefined>` (Papa header mode yields strings) — dropped the `any` + eslint-disable; parse errors read in one pass
+
+### Fetch Lifecycle (`useTvData`)
+
+- Stale-response detection is a single `AbortController` identity check (superseded by refetch, or nulled on unmount) instead of a request-id counter + mounted flag; `mountedRef` kept only so a retained `refetch` called after unmount is a no-op
+- "Request timed out" message driven by a `timedOut` flag set by the timeout, not by `err.name === 'AbortError'` (only correct before by coupling to the staleness check)
+- Superseded check runs before parsing, not after
+
+### Tests
+
+- New `src/utils/parseSeriesCsv.test.ts` (row mapping, missing columns, malformed row, invalid IDs, broken quote fatal, numeric fallbacks) with shared fixtures in `parseSeriesCsv.fixture.ts`
+- `useTvData.test.ts` now covers lifecycle only: `fakeResponse`/`stubFetch`/`renderLoaded` helpers, a real 10s timeout via fake timers, superseded slow response ignored, refetch after unmount is a no-op; `refetch()` / timer advances wrapped in `act()`; `vi.unstubAllGlobals()` in `afterEach`
+- 57 tests total (was 50)
+
+### Security Review
+
+- No findings — fixed same-origin fetch URL, no `dynamicTyping`, no unsafe sinks; `__proto__` CSV header has no effect (string write to `__proto__` is a no-op, mapper reads fixed keys)
+
+## [0.4.3] — 2026-11-24
+
+Review pass over `src/context/` (simplify, code-review, security-review). The code-review also surfaced 3 older bugs in `useTvData`, fixed here. Checked in a real browser with Playwright.
+
+### Context
+
+- Context object + `useTvDataContext()` moved to new component-free `src/context/useTvDataContext.ts`; `TvDataContext.tsx` keeps only `TvDataProvider`. Fast Refresh no longer recreates the context when the provider file is edited (an already-loaded page would read the stale context). Pages import the hook from the new file
+- Context default is `null` and `useTvDataContext()` throws outside `TvDataProvider` — previously a fake `loading: true` default meant a mis-wired page spun forever
+- Context type derived from the hook (`ReturnType<typeof useTvData>`) instead of a hand-copied interface
+- Provider value memoized (stable identity for memoized consumers)
+
+### CSV Loading (`useTvData`)
+
+- One malformed CSV row no longer fails the whole load — only file-level PapaParse errors (no row number) are fatal; row-level errors (`TooFewFields`, bad quotes, …) skip that row with a `console.warn` naming the CSV line
+- `TV ID` is now a required column; rows with a blank or non-positive-integer ID are skipped (blank became `0` → duplicate React keys and an arbitrary `/shows/0`; garbage became `NaN` → `/shows/NaN`)
+- A failed fetch/refetch clears `data` — no stale rows alongside an error
+- 3 new tests (malformed row, invalid IDs, failed refetch) — 50 total
+
+### Security Review
+
+- No findings in `src/context/` / `useTvData` changes — fixed fetch URL, no unsafe sinks or deserialization, warnings log only CSV line numbers and show names
+
+## [0.4.2] — 2026-11-24
+
+Review pass over `src/components/` (simplify, code-review, security-review), then checked in a real browser with Playwright (desktop + mobile).
+
+### Statistics Charts (`ChartsSection`)
+
+- Pie legends no longer show at full opacity while the pies replay their entry animation after returning to the Overview tab. The anim-done flag moved into a new `AnimatedPie` child component, so it resets whenever `destroyOnHidden` remounts the pane (regression introduced by `destroyOnHidden`)
+- Top 10 by Watch Time tooltip uses `formatRuntime` (was raw minutes); `formatRuntime` now rounds fractional minutes (`125.5` → "2h 6m", was "2h 5.5m")
+- Status Breakdown donut uses `STATUS_COLORS`; added `In Production` (blue), `Planned` (purple), `Pilot` (orange) to `STATUS_COLORS` / `STATUS_TAG_COLORS` so the `chartColors[]` fallback can't land on a near-identical green/red next to Returning Series / Canceled
+- Simplified: label truncation inside the `useMemo`s (stable chart data, no animation replay on re-render), `countBarChart` helper for Languages/Networks/Actors/Creators, shared `axisTick`, `destroyOnHidden` on both `Tabs`
+
+### Layout / Navigation (`AppLayout`)
+
+- Navigating to a new page starts at the top. `Content` is the scroll container, and the router only resets window scroll, so e.g. clicking a ShowCard deep in the grid opened Show Detail scrolled partway down
+- Mobile bottom nav is re-shown on entering the mobile breakpoint — it could stay hidden after a desktop round-trip with nothing to scroll to bring it back. Scroll events fired by browser scroll anchoring during that reflow are ignored for 800ms (only when already scrolled), so they aren't mistaken for a user scroll-down
+- Trailing-slash URLs (`/shows/`, `/stats/`) now highlight the right nav item (sidebar + bottom nav `aria-current`) and show the right header title
+- Fixed React "shorthand and non-shorthand properties" warning on `Content` (`padding` + `paddingBottom` → longhands)
+- Simplified: antd tokens instead of hardcoded `isDark ? '#fff' : '#000'`, title derived from `NAV_ITEMS` (`PAGE_TITLES` removed), `onCollapse`/`collapsible` removed, scroll handler only sets state on an actual change
+
+### Error Handling
+
+- `RouteErrorBoundary` no longer clears an error in the same commit that caught it when a page crashes on the render that navigated to it (page threw twice, logged twice)
+
+### Stats (`StatsBar` / `StatCard`)
+
+- Hours Watched uses `totalHoursWatched` and matches the Dashboard (double rounding could put it 1h off)
+- Card hover text uses the formatted value + suffix (`0.22 y`, not `0.2197…`)
+- New shared `StatCard` tile (icon badge, colored top border; `compact` variant); Avg Rating neutral when unrated
+
+### Show Cards
+
+- `ShowCard` renders the shared `PosterThumb`, so a broken/404 poster URL falls back to the placeholder (was the browser's broken-image icon)
+
+### Other
+
+- `FilterBar`: status/sort options hoisted to module level, genre options memoized, `SECTION_GAP`
+- `ShowGrid`: wrapper div removed, `SPACING.lg`
+- New helpers: `utils/a11y.ts` (`activateOnKey`), `truncate()` in `derive.ts`, `avgRatingColor()` in `ui.ts`
+- `.gitignore`: Playwright output dirs
+
+### Security Review
+
+- No findings in `src/components/` — no unsafe sinks; error messages render as escaped text; poster URLs only reach `<img src>`; pathname only compared against static keys
+
+## [0.4.1] — 2026-11-23
+
+Review pass over `src/` entry/root and `src/pages/` (code-review, simplify, security-review). All bugs below were pre-existing.
+
+### Routing
+
+- Added a catch-all `*` route → new `NotFoundPage` (Empty + "Back to Dashboard") — unknown URLs previously rendered a blank content area
+- Added `RouteErrorBoundary` around the route `Outlet` in `AppLayout` — a render error or a failed lazy-chunk load (stale hashed chunk after a deploy) now shows `ErrorState` with a reload button instead of white-screening the whole app. Resets on pathname change without remounting the page
+- `Suspense` moved from `App` into `AppLayout` (inside the boundary), so the Sider/Header stay mounted while a route chunk loads
+- Idle route-chunk prefetch now swallows rejections (`.catch(() => {})`) — a failed prefetch no longer surfaces as an unhandled promise rejection; real navigation failures are caught by the boundary
+- Header title / nav highlight use `useMatch('/shows/:id')` instead of `startsWith('/shows/')` — `/shows/12/extra` (a 404) no longer shows "Show Detail" with Shows highlighted
+
+### Dashboard Page
+
+- Poster thumbnails fall back to the `VideoCameraOutlined` placeholder on a broken/404 URL (`onError` in `PosterThumb`), not just on an empty `posterUrl`
+- Avg Rating stat card uses a neutral color when there are no ratings — `'–'` → `parseFloat` NaN → `ratingColor(NaN)` was rendering it red
+- Highlights, Continue Watching, and Recently Watched cards are now keyboard accessible (`role="button"`, `tabIndex`, Enter/Space), matching the Not Started list
+- Simplified: shared `PosterThumb` / `ShowRowCard` / `activateOnKey` helpers replace 4 duplicated poster blocks and inline key handlers; Highlights rendered from a data array
+
+### Shows Page
+
+- Pagination bar no longer disappears when the page size exceeds the result count — it renders whenever results exceed the smallest page size (12), so the size picker stays reachable
+- Last filter change no longer lost when navigating away within the 300ms save debounce — pending save is flushed on unmount
+- Saved genre/status values that no longer exist in the CSV are dropped once data loads, instead of silently filtering to 0 results
+- `loadFilters` type-checks each stored field individually (corrupt values fall back to defaults)
+
+### Show Detail Page
+
+- Air dates no longer one day early west of UTC — `'YYYY-MM-DD'` parses as UTC midnight, now also formatted with `timeZone: 'UTC'`. Invalid dates show `–` instead of "Invalid Date"
+- Overview expand state resets when navigating between shows (`/shows/1` → `/shows/2` doesn't remount the page)
+- "Show more" button shown based on actual clamp overflow (`ResizeObserver`, `scrollHeight > clientHeight`) instead of `overview.length > 200` — short-but-wrapped overviews on narrow screens were clamped with no way to expand
+
+### Security / Hardening
+
+- `settings.ts`: `getSettings()` returns `{}` for non-object JSON (array/null/primitive); `saveSetting()` catches storage errors (blocked/quota) instead of throwing
+- `loadThemeName` uses an own-property check against `THEMES` — a stored `"__proto__"`/`"toString"` can't resolve to a prototype member
+
 ## [0.4.0] — 2026-08-01
 
 ### Mobile

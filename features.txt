@@ -1,5 +1,5 @@
 TV Dashboard — Feature List
-Version 0.4.0
+Version 0.4.11
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
@@ -18,6 +18,9 @@ DASHBOARD PAGE
 - Not Started: compact clickable list, unwatched sorted by rating;
   "All caught up" fallback card when every show has been started
 - Explore More CTA row: links to Shows and Statistics pages
+- All poster thumbnails fall back to placeholder on empty OR broken/404 URL
+- Every clickable card keyboard-operable (role="button", Enter/Space)
+- Avg Rating card neutral-colored when no shows are rated
 - Empty state (Empty + Refresh) when CSV has 0 rows
 
 ═══════════════════════════════════════
@@ -27,24 +30,32 @@ SHOWS PAGE
 - Default sort: Recently Watched (CSV row order, newest first)
 - Sort options: Recently Watched, Rating, Popularity, Year, Watch Time, Name A–Z
 - Search: matches title, actor/actress, keyword, genre, creator, network
-- Filter by genre (multi-select) and status
+  (search text lowercased once per data load, not per keystroke)
+- Filter by genre (multi-select) and status — both option lists built from
+  the loaded CSV (no options that always give 0 results); statuses in a
+  fixed order (Returning Series, Ended, Canceled, …), unknown ones last
 - Filter bar in a themed Card (shadow + radius); result-count row
   ("X of Y shows") with closable filter chips and a Reset filters link
-- All filters + sort persist across sessions via localStorage
-- Pagination with configurable page size (12/24/48/96)
+- All filters + sort persist across sessions via localStorage; last change
+  flushed on navigate-away; saved genres/statuses no longer in the CSV are dropped
+- Pagination with configurable page size (12/24/48/96); bar stays visible
+  whenever results exceed 12, so the size picker is always reachable
 - Show cards: poster image, rating badge, status indicator, genre tags,
-  rounded corners (radius 10) for visual consistency with other pages
+  rounded corners (radius 10) for visual consistency with other pages;
+  poster falls back to placeholder on empty OR broken/404 URL
 
 ═══════════════════════════════════════
 SHOW DETAIL PAGE
 ═══════════════════════════════════════
 - Hero section: poster, title, status tag, rating badge, year, age rating, language
 - Tagline display
-- Overview with 4-line clamp + expand/collapse toggle
+- Overview with 4-line clamp + expand/collapse toggle — toggle shown only
+  when text actually overflows (ResizeObserver); resets on show change
 - Genre tags
 - Stat cards: episodes watched, total watch time, seasons watched, first air year
 - Show Details card: seasons, total episodes, episode runtime, popularity,
-  vote count, first air date (formatted), last air date (formatted),
+  vote count, first air date, last air date (formatted in UTC — no off-by-one-day
+  west of UTC; invalid dates show –),
   networks, creators
 - Watch History card: episode completion progress bar, season-by-season
   tracker with check/clock icons (watched / not watched)
@@ -65,6 +76,8 @@ Stats Bar (10 cards):
   Episodes Watched, Top Genre, Top Network,
   Hours Watched, Minutes Watched, Years Watched
 - Icon badge + colored top border + shadow (matches Dashboard stat cards)
+- Hover text shows the formatted value (precision + unit); Hours Watched
+  matches the Dashboard figure
 
 14 Charts, grouped into 4 tabs (was one flat always-visible list):
 
@@ -94,6 +107,12 @@ Tab labels shorten below the sm breakpoint ("Watch Time" → "Time",
 "People & Networks" → "People") to avoid clipping against antd's
 tab-overflow trigger on narrow screens. All chart cards: shadow +
 rounded corners (matches other pages).
+Pie/donut legends fade in after the slice animation, including on
+returning to the Overview tab. Status donut has fixed colors for
+Returning Series, Ended, Canceled, In Production, Planned, Pilot; each
+status uses the same color as a bar/slice and as a tag. Unknown
+statuses get a theme chart color on every page (not Ended grey).
+Watch-time tooltips formatted as "Xh Ym" (whole minutes).
 
 ═══════════════════════════════════════
 THEMES
@@ -113,7 +132,11 @@ CSV GENERATOR (series-search.py)
 - Saves: metadata, cast (top 5), keywords, age rating, poster URL,
   seasons watched, episodes watched, total runtime
 - Re-adding a show updates existing row (no duplicates)
-- Outputs tv_series.csv — place in public/ to load in dashboard
+- A season whose episode fetch fails is skipped and reported (stays
+  addable later), never saved as 0 episodes
+- Search / paging buttons ignored while a page is loading
+- Writes public/tv_series.csv directly (path resolved from the script);
+  unknown values written blank; appends follow the existing header
 
 ═══════════════════════════════════════
 SIDEBAR / MOBILE NAVIGATION
@@ -131,7 +154,9 @@ Mobile (viewport < lg breakpoint):
   drawer. Replaced by a fixed bottom nav bar: 3 icon+label buttons
   (Dashboard/Shows/Statistics), active route highlighted
 - Bottom nav auto-hides on scroll-down (slides off via translateY,
-  0.25s transition), reappears on scroll-up or near the top of page
+  0.25s transition), reappears on scroll-up or near the top of page;
+  always shown after navigating or on entering mobile width (resize /
+  rotate) — layout-reflow scroll events don't re-hide it
 - Content gets extra bottom padding so the last card/chart is never
   hidden under the bar even when it's visible
 
@@ -143,7 +168,29 @@ TECHNICAL
 - 100% React inline styles (no CSS files in src/)
 - All Ant Design styling via ConfigProvider tokens
 - All localStorage via settings.ts (tvdash-settings key)
-- Filters, sort, page size, theme persist across sessions
+- Filters, sort, theme persist across sessions (page size is per-visit)
+- settings.ts tolerates corrupt JSON / blocked storage (never throws)
+- Unknown values (blank / 0 / N/A year, rating, seasons, language, age
+  rating) show '–' or are hidden — never "0", "★ 0.0" or an "N/A" tag;
+  unrated / unknown-year shows sort last in Rating ↓ / Year ↓
+- Seasons Watched counts unique seasons only ("1,1,2" = 2)
+- Season count must be a whole number up to 1000 and episode runtime
+  positive — otherwise treated as unknown ('–')
+- CSV loading tolerates bad rows: a row with the wrong field count or a
+  blank/invalid/duplicate TV ID is skipped instead of failing the whole
+  file; broken quotes and missing required columns are fatal (a bad quote
+  would swallow later rows), and so is every row being skipped
+- Skipped rows show a dismissible warning banner above every page (first
+  3 listed, rest in the console); reappears after a reload that still
+  skips rows
+- Empty tv_series.csv shows the Dashboard empty state, not a parse error
+- CSV parsing is a pure module (parseSeriesCsv) separate from the fetch
+  hook; a superseded or post-unmount request never updates state
+- A failed reload clears data, so pages never show stale rows next to
+  an error
+- Data context throws if used outside its provider (no silent endless
+  spinner); context lives in a component-free module so dev hot-reload
+  never breaks an open page
 - React.memo on ShowCard, ShowGrid, StatsBar, ChartsSection
 - useDeferredValue for search input (non-blocking filter)
 - Search filter persistence debounced 300ms (was synchronous per keystroke)
@@ -152,5 +199,10 @@ TECHNICAL
 - cardShadow(isDark) shared helper in constants/ui.ts — one shadow
   formula used by Dashboard, FilterBar, ChartsSection, StatsBar, and
   Show Detail cards instead of 5x duplicated inline style objects
+- Catch-all 404 route (NotFoundPage); trailing-slash URLs (/shows/)
+  get the right nav highlight + header title
+- Every navigation starts at the top of the page (Content scroll reset)
+- RouteErrorBoundary + Suspense inside AppLayout: page crash or failed
+  lazy-chunk load shows ErrorState with reload; shell stays mounted
 - Dev server binds 0.0.0.0 (vite.config server.host: true) — reachable
   from other devices on the same network, not just localhost

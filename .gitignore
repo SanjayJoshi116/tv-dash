@@ -4,6 +4,10 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+# stale root output of `tsc -b` before tsconfig.node.json got an outDir — delete if present
+# (vite and vitest would load a leftover vite.config.js instead of vite.config.ts)
+vite.config.js
+vite.config.d.ts
 .vite/
 .env
 .env.local
@@ -21,3 +25,10 @@ __pycache__/
 *.pyc
 *.pyo
 scratch_*.png
+.claude/settings.local.json
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

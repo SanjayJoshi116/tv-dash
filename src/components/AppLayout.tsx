@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Button, Grid, Layout, Menu, Typography } from 'antd'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { Button, Grid, Layout, Menu, Typography, theme as antTheme } from 'antd'
 import { BarChartOutlined, DashboardOutlined, MenuFoldOutlined, MenuUnfoldOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { ThemeToggle } from './ThemeToggle'
+import { LoadingState } from './LoadingState'
+import { RouteErrorBoundary } from './RouteErrorBoundary'
+import { CsvWarningBanner } from './CsvWarningBanner'
+import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
 
 const { Sider, Header, Content } = Layout
@@ -19,12 +23,6 @@ const NAV_ITEMS = [
   { key: '/stats', label: 'Statistics', icon: <BarChartOutlined /> },
 ]
 
-const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard',
-  '/shows': 'Shows',
-  '/stats': 'Statistics',
-}
-
 const BOTTOM_NAV_HEIGHT = 60
 
 function loadSidebarCollapsed(): boolean {
@@ -33,15 +31,20 @@ function loadSidebarCollapsed(): boolean {
 
 export function AppLayout({ activeThemeName, onThemeChange }: Props) {
   const theme = useTheme()
+  // Shell-level, like the theme: skipped-row warnings apply to every page
+  const { warnings } = useTvDataContext()
   const location = useLocation()
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
+  const { token } = antTheme.useToken()
 
   const [collapsed, setCollapsed] = useState(loadSidebarCollapsed)
   const [broken, setBroken] = useState(false)
   const [navVisible, setNavVisible] = useState(true)
   const contentRef = useRef<HTMLDivElement>(null)
   const lastScrollY = useRef(0)
+  // Mirrors navVisible so the scroll handler only calls setState on an actual change
+  const navVisibleRef = useRef(true)
 
   const handleCollapse = (v: boolean) => {
     setCollapsed(v)
@@ -55,23 +58,37 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
   // documented pattern for this exact case, but it genuinely misbehaves here
   // under React.StrictMode (confirmed via a debug trace: it oscillates and
   // settles on the wrong value). A plain effect is what's actually correct.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setNavVisible(true) }, [location.pathname])
+  useEffect(() => {
+    navVisibleRef.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNavVisible(true)
+    // Content is the scroll container (not window), so the router never resets it
+    contentRef.current?.scrollTo(0, 0)
+    lastScrollY.current = 0
+  }, [location.pathname])
 
   useEffect(() => {
     if (!broken) return
+    // Hidden state survives a desktop round-trip; re-show the bar so it's never stuck off-screen
+    navVisibleRef.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
+    setNavVisible(true)
     const el = contentRef.current
     if (!el) return
     lastScrollY.current = el.scrollTop
+    // Entering mobile reflows the grid (Sider collapse + column change), and browser scroll
+    // anchoring fires scroll events with large positive deltas. Ignore those briefly so they
+    // aren't mistaken for a user scroll-down that re-hides the bar. Anchoring only moves an
+    // already-scrolled container, so a fresh load at scrollTop 0 reacts immediately.
+    const ignoreUntil = el.scrollTop > 0 ? performance.now() + 800 : 0
     const handleScroll = () => {
       const y = el.scrollTop
+      if (performance.now() < ignoreUntil) { lastScrollY.current = y; return }
       const delta = y - lastScrollY.current
-      if (y < 24) {
-        setNavVisible(true)
-      } else if (delta > 8) {
-        setNavVisible(false)
-      } else if (delta < -8) {
-        setNavVisible(true)
+      const next = y < 24 || delta < -8 ? true : delta > 8 ? false : navVisibleRef.current
+      if (next !== navVisibleRef.current) {
+        navVisibleRef.current = next
+        setNavVisible(next)
       }
       lastScrollY.current = y
     }
@@ -79,18 +96,24 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
     return () => el.removeEventListener('scroll', handleScroll)
   }, [broken])
 
-  const selectedKey = location.pathname.startsWith('/shows/') ? '/shows' : (location.pathname || '/')
-  const pageTitle = location.pathname.startsWith('/shows/')
+  // Exact match — /shows/12/extra is a 404, not a show detail page
+  const isShowDetail = useMatch('/shows/:id') !== null
+  // Router matches /shows/ as /shows, so normalize the trailing slash for nav/title lookup
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
+  const selectedKey = isShowDetail ? '/shows' : normalizedPath
+  const pageTitle = isShowDetail
     ? 'Show Detail'
-    : (PAGE_TITLES[location.pathname] ?? 'TV Dashboard')
+    : (NAV_ITEMS.find(i => i.key === normalizedPath)?.label ?? 'TV Dashboard')
+
+  const pad = screens.sm ? 24 : 12
 
   return (
     <Layout style={{ height: '100vh' }}>
+      {/* Fully controlled: no onCollapse — antd fires it on breakpoint changes,
+          which would overwrite the saved desktop state in tvdash-sidebar. */}
       <Sider
-        collapsible
         trigger={null}
         collapsed={broken || collapsed}
-        onCollapse={v => { if (!broken) handleCollapse(v) }}
         breakpoint="lg"
         collapsedWidth={broken ? 0 : 80}
         onBreakpoint={setBroken}
@@ -111,7 +134,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           borderBottom: `1px solid ${theme.borderColor}`,
           overflow: 'hidden',
         }}>
-          <Title level={4} style={{ margin: 0, color: theme.isDark ? '#fff' : '#000', whiteSpace: 'nowrap' }}>
+          <Title level={4} style={{ margin: 0, whiteSpace: 'nowrap' }}>
             {collapsed ? '📺' : '📺 TV'}
           </Title>
         </div>
@@ -134,7 +157,6 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => handleCollapse(!collapsed)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            style={{ color: theme.isDark ? '#fff' : '#000' }}
           />
         </div>
       </Sider>
@@ -149,11 +171,9 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           borderBottom: `1px solid ${theme.borderColor}`,
           flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-            <Title level={4} ellipsis style={{ margin: 0, color: theme.isDark ? '#fff' : '#000', minWidth: 0 }}>
-              {pageTitle}
-            </Title>
-          </div>
+          <Title level={4} ellipsis style={{ margin: 0, minWidth: 0, flex: 1 }}>
+            {pageTitle}
+          </Title>
           <ThemeToggle value={activeThemeName} onChange={onThemeChange} />
         </Header>
 
@@ -161,14 +181,21 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           ref={contentRef}
           style={{
             background: theme.contentBg,
-            padding: screens.sm ? '24px' : '12px',
-            paddingBottom: broken ? BOTTOM_NAV_HEIGHT + 12 : (screens.sm ? 24 : 12),
+            // Longhands only — mixing `padding` + `paddingBottom` triggers a React rerender warning
+            paddingTop: pad,
+            paddingInline: pad,
+            paddingBottom: broken ? BOTTOM_NAV_HEIGHT + 12 : pad,
             overflowY: 'scroll',
             flex: 1,
           }}
         >
           <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-            <Outlet />
+            <CsvWarningBanner warnings={warnings} />
+            <RouteErrorBoundary pathname={location.pathname}>
+              <Suspense fallback={<LoadingState />}>
+                <Outlet />
+              </Suspense>
+            </RouteErrorBoundary>
           </div>
         </Content>
       </Layout>
@@ -205,7 +232,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
                   gap: 2,
                   border: 'none',
                   background: 'transparent',
-                  color: active ? theme.token.colorPrimary : (theme.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)'),
+                  color: active ? token.colorPrimary : token.colorTextSecondary,
                   fontSize: 20,
                   cursor: 'pointer',
                 }}

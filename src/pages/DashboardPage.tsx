@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Col, Divider, Empty, Progress, Row, Statistic, Tabs, Tag, Typography } from 'antd'
+import { Button, Card, Col, Divider, Empty, Progress, Row, Tabs, Tag, Typography } from 'antd'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
   BarChartOutlined,
@@ -18,10 +18,12 @@ import {
   VideoCameraOutlined,
 } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
-import { useTvDataContext } from '../context/TvDataContext'
+import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
 import {
+  compareDescNullsLast,
   avgRating,
+  maxBy,
   completionRate,
   formatRuntime,
   genreDistribution,
@@ -32,11 +34,51 @@ import {
   totalEpisodesWatched,
   totalHoursWatched,
 } from '../utils/derive'
-import { SECTION_GAP, STATUS_COLORS, cardShadow, completionColor, ratingColor } from '../constants/ui'
+import { SECTION_GAP, STATUS_COLORS, STATUS_TAG_COLORS, cardShadow, cardStyle, completionColor, ratingColor, statusHex } from '../constants/ui'
+import { activateOnKey } from '../utils/a11y'
+import { PosterThumb } from '../components/PosterThumb'
+import { StatCard } from '../components/StatCard'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
+
+interface ShowRowCardProps {
+  series: TvSeries
+  bg: string
+  onClick: () => void
+  children: ReactNode
+  thumb?: { width: number; height: number; iconSize: number }
+  header?: ReactNode
+  ariaLabel?: string
+  style?: CSSProperties
+  padding?: number
+}
+
+const DEFAULT_THUMB = { width: 48, height: 72, iconSize: 18 }
+const HIGHLIGHT_THUMB = { width: 44, height: 66, iconSize: 16 }
+
+function ShowRowCard({ series, bg, onClick, children, thumb = DEFAULT_THUMB, header, ariaLabel, style, padding = 10 }: ShowRowCardProps) {
+  return (
+    <Card
+      hoverable
+      size="small"
+      onClick={onClick}
+      onKeyDown={activateOnKey(onClick)}
+      role="button"
+      tabIndex={0}
+      aria-label={ariaLabel ?? series.name}
+      style={style}
+      styles={{ body: { padding } }}
+    >
+      {header}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <PosterThumb series={series} {...thumb} bg={bg} />
+        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      </div>
+    </Card>
+  )
+}
 
 export function DashboardPage() {
   const { data, loading, error, refetch } = useTvDataContext()
@@ -44,16 +86,15 @@ export function DashboardPage() {
   const theme = useTheme()
 
   const topShow = useMemo(() => topByWatchTime(data, 1)[0], [data])
-  const totalEpisodes = useMemo(() => totalEpisodesWatched(data), [data])
+  const stats = useMemo(() => ({
+    totalEpisodes: totalEpisodesWatched(data),
+    completion: completionRate(data),
+    avg: avgRating(data),
+    hours: totalHoursWatched(data),
+  }), [data])
 
-  const topRated = useMemo(
-    () => [...data].filter(s => s.voteAverage > 0).sort((a, b) => b.voteAverage - a.voteAverage)[0],
-    [data]
-  )
-  const newestShow = useMemo(
-    () => [...data].filter(s => s.firstAirYear).sort((a, b) => b.firstAirYear - a.firstAirYear)[0],
-    [data]
-  )
+  const topRated = useMemo(() => maxBy(data, s => s.voteAverage), [data])
+  const newestShow = useMemo(() => maxBy(data, s => s.firstAirYear), [data])
   const ratingDist = useMemo(() => ratingBuckets(data), [data])
 
   const recentlyWatched = useMemo(
@@ -74,7 +115,7 @@ export function DashboardPage() {
     () =>
       data
         .filter(s => s.episodesWatched === 0)
-        .sort((a, b) => b.voteAverage - a.voteAverage)
+        .sort((a, b) => compareDescNullsLast(a.voteAverage, b.voteAverage))
         .slice(0, 8),
     [data]
   )
@@ -84,7 +125,7 @@ export function DashboardPage() {
   const statuses = useMemo(() => statusDistribution(data), [data])
   const statusTotal = statuses.reduce((s, d) => s + d.value, 0)
 
-  if (loading) return <LoadingState tip="Loading..." />
+  if (loading) return <LoadingState />
   if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
 
   if (data.length === 0) {
@@ -104,58 +145,61 @@ export function DashboardPage() {
     )
   }
 
-  const completion = completionRate(data)
-  const rating = parseFloat(avgRating(data))
+  const { totalEpisodes, completion, avg, hours } = stats
   const shadow = cardShadow(theme.isDark)
+  const baseCard = cardStyle(theme.isDark)
   const statCards = [
     { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: theme.chartColors[0] },
-    { title: 'Hours Watched', value: totalHoursWatched(data), suffix: 'h', prefix: <ClockCircleOutlined />, color: theme.chartColors[3] },
-    { title: 'Avg Rating', value: avgRating(data), suffix: '/ 10', prefix: <StarOutlined />, color: ratingColor(rating) },
+    { title: 'Hours Watched', value: hours, suffix: 'h', prefix: <ClockCircleOutlined />, color: theme.chartColors[3] },
+    { title: 'Avg Rating', value: avg?.toFixed(1) ?? '–', suffix: '/ 10', prefix: <StarOutlined />, color: avg == null ? theme.chartText : ratingColor(avg) },
     { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: theme.chartColors[5] },
     { title: 'Completion Rate', value: completion, suffix: '%', prefix: <CheckCircleOutlined />, color: completionColor(completion) },
   ]
 
-  const renderHighlight = (label: string, icon: ReactNode, series: TvSeries | undefined, detail: ReactNode) => (
-    <Card
-      hoverable={!!series}
-      onClick={series ? () => navigate(`/shows/${series.tvId}`) : undefined}
-      size="small"
-      style={{
-        cursor: series ? 'pointer' : 'default',
-        borderRadius: 10,
-        borderTop: `3px solid ${theme.token.colorPrimary}`,
-        boxShadow: shadow,
-        height: '100%',
-      }}
-      styles={{ body: { padding: 14 } }}
-    >
-      <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-        {icon}{label}
-      </Text>
-      {series ? (
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {series.posterUrl ? (
-            <img
-              src={series.posterUrl}
-              alt={series.name}
-              loading="lazy"
-              style={{ width: 44, height: 66, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-            />
-          ) : (
-            <div style={{ width: 44, height: 66, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <VideoCameraOutlined style={{ fontSize: 16, opacity: 0.4 }} />
-            </div>
-          )}
-          <div style={{ minWidth: 0 }}>
-            <Text strong ellipsis style={{ display: 'block', fontSize: 14, marginBottom: 4 }}>{series.name}</Text>
-            {detail}
-          </div>
-        </div>
-      ) : (
-        <Text type="secondary">No data</Text>
-      )}
-    </Card>
+  const goToShow = (s: TvSeries) => navigate(`/shows/${s.tvId}`)
+
+  const highlights: { label: string; icon: ReactNode; series: TvSeries | undefined; detail: (s: TvSeries) => ReactNode }[] = [
+    {
+      label: 'Most Watched',
+      icon: <PlayCircleOutlined />,
+      series: topShow && topShow.totalRuntimeWatched > 0 ? topShow : undefined,
+      detail: s => <Text type="secondary" style={{ fontSize: 12 }}><ClockCircleOutlined /> {formatRuntime(s.totalRuntimeWatched)} watched</Text>,
+    },
+    {
+      label: 'Top Rated',
+      icon: <StarFilled />,
+      series: topRated,
+      detail: s => s.voteAverage != null && <Text style={{ fontSize: 12, color: ratingColor(s.voteAverage) }}><StarFilled style={{ fontSize: 11 }} /> {s.voteAverage.toFixed(1)} rating</Text>,
+    },
+    {
+      label: 'Newest Release',
+      icon: <CalendarOutlined />,
+      series: newestShow,
+      detail: s => <Text type="secondary" style={{ fontSize: 12 }}><CalendarOutlined /> {s.firstAirYear ?? '–'}</Text>,
+    },
+  ]
+
+  const highlightStyle: CSSProperties = { ...baseCard, borderTop: `3px solid ${theme.token.colorPrimary}`, height: '100%' }
+  const highlightHeader = (icon: ReactNode, label: string) => (
+    <Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+      {icon}{label}
+    </Text>
   )
+
+  const renderBar = (name: string, value: number, percent: number, strokeColor: string) => (
+    <div key={name} style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+        <Text style={{ fontSize: 13 }}>{name}</Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>{value}</Text>
+      </div>
+      <Progress percent={percent} showInfo={false} size="small" strokeColor={strokeColor} />
+    </div>
+  )
+
+  const exploreCards = [
+    { title: 'Browse the full catalogue', subtitle: 'Search, filter, and sort every show', button: 'Go to Shows', icon: <UnorderedListOutlined />, to: '/shows', primary: true },
+    { title: 'Dive into the analytics', subtitle: '14 charts on genres, ratings, watch time, and more', button: 'Go to Statistics', icon: <BarChartOutlined />, to: '/stats', primary: false },
+  ]
 
   return (
     <>
@@ -163,22 +207,7 @@ export function DashboardPage() {
       <Row gutter={[16, 16]} style={{ marginBottom: SECTION_GAP }}>
         {statCards.map(({ title, value, suffix, prefix, color }) => (
           <Col key={title} flex="1 1 180px">
-            <Card
-              size="small"
-              style={{
-                height: '100%',
-                borderRadius: 10,
-                border: `1px solid ${color}40`,
-                borderTop: `3px solid ${color}`,
-                boxShadow: shadow,
-              }}
-              styles={{ body: { display: 'flex', alignItems: 'center', gap: 12 } }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}22`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                {prefix}
-              </div>
-              <Statistic title={title} value={value} suffix={suffix} valueStyle={{ color, fontWeight: 700 }} />
-            </Card>
+            <StatCard title={title} value={value} suffix={suffix} prefix={prefix} color={color} shadow={shadow} />
           </Col>
         ))}
       </Row>
@@ -193,36 +222,30 @@ export function DashboardPage() {
           <div style={{ marginBottom: SECTION_GAP }}>
             <Title level={5} style={{ marginBottom: 10 }}><TrophyOutlined style={{ marginRight: 6 }} />Highlights</Title>
             <Row gutter={[10, 10]}>
-              <Col xs={24} sm={8}>
-                {renderHighlight(
-                  'Most Watched',
-                  <PlayCircleOutlined />,
-                  topShow && topShow.totalRuntimeWatched > 0 ? topShow : undefined,
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    <ClockCircleOutlined /> {topShow ? formatRuntime(topShow.totalRuntimeWatched) : ''} watched
-                  </Text>
-                )}
-              </Col>
-              <Col xs={24} sm={8}>
-                {renderHighlight(
-                  'Top Rated',
-                  <StarFilled />,
-                  topRated,
-                  <Text style={{ fontSize: 12, color: topRated ? ratingColor(topRated.voteAverage) : undefined }}>
-                    <StarFilled style={{ fontSize: 11 }} /> {topRated?.voteAverage.toFixed(1)} rating
-                  </Text>
-                )}
-              </Col>
-              <Col xs={24} sm={8}>
-                {renderHighlight(
-                  'Newest Release',
-                  <CalendarOutlined />,
-                  newestShow,
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    <CalendarOutlined /> {newestShow?.firstAirYear}
-                  </Text>
-                )}
-              </Col>
+              {highlights.map(({ label, icon, series, detail }) => (
+                <Col key={label} xs={24} sm={8}>
+                  {series ? (
+                    <ShowRowCard
+                      series={series}
+                      bg={theme.posterFallbackBg}
+                      onClick={() => goToShow(series)}
+                      thumb={HIGHLIGHT_THUMB}
+                      header={highlightHeader(icon, label)}
+                      ariaLabel={`${label}: ${series.name}`}
+                      style={highlightStyle}
+                      padding={14}
+                    >
+                      <Text strong ellipsis style={{ display: 'block', fontSize: 14, marginBottom: 4 }}>{series.name}</Text>
+                      {detail(series)}
+                    </ShowRowCard>
+                  ) : (
+                    <Card size="small" style={highlightStyle} styles={{ body: { padding: 14 } }}>
+                      {highlightHeader(icon, label)}
+                      <Text type="secondary">No data</Text>
+                    </Card>
+                  )}
+                </Col>
+              ))}
             </Row>
           </div>
 
@@ -235,38 +258,16 @@ export function DashboardPage() {
                   const pct = Math.round((series.episodesWatched / series.totalEpisodes) * 100)
                   return (
                     <Col key={series.tvId} xs={24} sm={12} xl={8}>
-                      <Card
-                        hoverable
-                        size="small"
-                        onClick={() => navigate(`/shows/${series.tvId}`)}
-                        style={{ cursor: 'pointer' }}
-                        styles={{ body: { padding: 10 } }}
-                      >
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                          {series.posterUrl ? (
-                            <img
-                              src={series.posterUrl}
-                              alt={series.name}
-                              loading="lazy"
-                              style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                            />
-                          ) : (
-                            <div style={{ width: 48, height: 72, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <VideoCameraOutlined style={{ fontSize: 18, opacity: 0.4 }} />
-                            </div>
+                      <ShowRowCard series={series} bg={theme.posterFallbackBg} onClick={() => goToShow(series)}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Text strong ellipsis style={{ display: 'block', fontSize: 13, flex: 1, minWidth: 0 }}>{series.name}</Text>
+                          {series.status === 'Returning Series' && (
+                            <Tag color={STATUS_TAG_COLORS['Returning Series']} style={{ fontSize: 10, margin: 0, lineHeight: '16px', padding: '0 4px' }}>New eps</Tag>
                           )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                              <Text strong ellipsis style={{ display: 'block', fontSize: 13, flex: 1, minWidth: 0 }}>{series.name}</Text>
-                              {series.status === 'Returning Series' && (
-                                <Tag color="green" style={{ fontSize: 10, margin: 0, lineHeight: '16px', padding: '0 4px' }}>New eps</Tag>
-                              )}
-                            </div>
-                            <Progress percent={pct} size="small" strokeColor={theme.token.colorPrimary} showInfo={false} style={{ marginBottom: 3 }} />
-                            <Text type="secondary" style={{ fontSize: 11 }}>{series.episodesWatched}/{series.totalEpisodes} eps · {pct}%</Text>
-                          </div>
                         </div>
-                      </Card>
+                        <Progress percent={pct} size="small" strokeColor={theme.token.colorPrimary} showInfo={false} style={{ marginBottom: 3 }} />
+                        <Text type="secondary" style={{ fontSize: 11 }}>{series.episodesWatched}/{series.totalEpisodes} eps · {pct}%</Text>
+                      </ShowRowCard>
                     </Col>
                   )
                 })}
@@ -280,36 +281,14 @@ export function DashboardPage() {
             <Row gutter={[10, 10]}>
               {recentlyWatched.map(series => (
                 <Col key={series.tvId} xs={24} sm={8}>
-                  <Card
-                    hoverable
-                    size="small"
-                    onClick={() => navigate(`/shows/${series.tvId}`)}
-                    style={{ cursor: 'pointer' }}
-                    styles={{ body: { padding: 10 } }}
-                  >
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      {series.posterUrl ? (
-                        <img
-                          src={series.posterUrl}
-                          alt={series.name}
-                          loading="lazy"
-                          style={{ width: 48, height: 72, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                        />
-                      ) : (
-                        <div style={{ width: 48, height: 72, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <VideoCameraOutlined style={{ fontSize: 18, opacity: 0.4 }} />
-                        </div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <Text strong ellipsis style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>{series.name}</Text>
-                        <Text type="secondary" style={{ fontSize: 11 }}>{series.firstAirYear}</Text>
-                        {series.voteAverage > 0 && (
-                          <Text type="secondary" style={{ fontSize: 11 }}> · <StarFilled style={{ color: '#faad14', fontSize: 10 }} /> {series.voteAverage.toFixed(1)}</Text>
-                        )}
-                        <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 2 }}>{series.episodesWatched}/{series.totalEpisodes} eps</Text>
-                      </div>
-                    </div>
-                  </Card>
+                  <ShowRowCard series={series} bg={theme.posterFallbackBg} onClick={() => goToShow(series)}>
+                    <Text strong ellipsis style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>{series.name}</Text>
+                    <Text type="secondary" style={{ fontSize: 11 }}>{series.firstAirYear ?? '–'}</Text>
+                    {series.voteAverage != null && (
+                      <Text type="secondary" style={{ fontSize: 11 }}> · <StarFilled style={{ color: '#faad14', fontSize: 10 }} /> {series.voteAverage.toFixed(1)}</Text>
+                    )}
+                    <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 2 }}>{series.episodesWatched}/{series.totalEpisodes} eps</Text>
+                  </ShowRowCard>
                 </Col>
               ))}
             </Row>
@@ -320,35 +299,19 @@ export function DashboardPage() {
         <Col xs={24} lg={8}>
 
           {/* Top Genres / Watch Status (tabbed — keeps sidebar height in check) */}
-          <Card size="small" style={{ marginBottom: 12, borderRadius: 10, boxShadow: shadow }} styles={{ body: { paddingTop: 0 } }}>
+          <Card size="small" style={{ marginBottom: 12, ...baseCard }} styles={{ body: { paddingTop: 0 } }}>
             <Tabs
               size="small"
               items={[
                 {
                   key: 'genres',
                   label: <><TagsOutlined style={{ marginRight: 6 }} />Top Genres</>,
-                  children: topGenres.map(({ name, value }) => (
-                    <div key={name} style={{ marginBottom: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <Text style={{ fontSize: 13 }}>{name}</Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{value}</Text>
-                      </div>
-                      <Progress percent={Math.round((value / genreMax) * 100)} showInfo={false} size="small" strokeColor={theme.token.colorPrimary} />
-                    </div>
-                  )),
+                  children: topGenres.map(({ name, value }) => renderBar(name, value, Math.round((value / genreMax) * 100), theme.token.colorPrimary)),
                 },
                 {
                   key: 'status',
                   label: <><BarChartOutlined style={{ marginRight: 6 }} />Watch Status</>,
-                  children: statuses.map(({ name, value }) => (
-                    <div key={name} style={{ marginBottom: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <Text style={{ fontSize: 13 }}>{name}</Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{value}</Text>
-                      </div>
-                      <Progress percent={Math.round((value / statusTotal) * 100)} showInfo={false} size="small" strokeColor={STATUS_COLORS[name] ?? '#8c8c8c'} />
-                    </div>
-                  )),
+                  children: statuses.map(({ name, value }, i) => renderBar(name, value, Math.round((value / statusTotal) * 100), statusHex(name, theme.chartColors[i % theme.chartColors.length]))),
                 },
                 {
                   key: 'ratings',
@@ -374,7 +337,7 @@ export function DashboardPage() {
             <Card
               title="Not Started"
               size="small"
-              style={{ borderRadius: 10, boxShadow: shadow }}
+              style={baseCard}
               extra={<Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate('/shows')}>View all</Button>}
             >
               {notStarted.map((series, i) => (
@@ -382,28 +345,18 @@ export function DashboardPage() {
                   {i > 0 && <Divider style={{ margin: '8px 0' }} />}
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-                    onClick={() => navigate(`/shows/${series.tvId}`)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/shows/${series.tvId}`) } }}
+                    onClick={() => goToShow(series)}
+                    onKeyDown={activateOnKey(() => goToShow(series))}
                     role="button"
                     tabIndex={0}
                     aria-label={series.name}
                   >
-                    {series.posterUrl ? (
-                      <img
-                        src={series.posterUrl}
-                        alt={series.name}
-                        loading="lazy"
-                        style={{ width: 36, height: 54, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div style={{ width: 36, height: 54, borderRadius: 4, background: theme.posterFallbackBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <VideoCameraOutlined style={{ fontSize: 14, opacity: 0.4 }} />
-                      </div>
-                    )}
+                    <PosterThumb series={series} width={36} height={54} iconSize={14} bg={theme.posterFallbackBg} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <Text strong ellipsis style={{ display: 'block', fontSize: 13 }}>{series.name}</Text>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        {series.firstAirYear} · <StarFilled style={{ color: '#faad14', fontSize: 10 }} /> {series.voteAverage.toFixed(1)}
+                        {series.firstAirYear ?? '–'}
+                        {series.voteAverage != null && <> · <StarFilled style={{ color: '#faad14', fontSize: 10 }} /> {series.voteAverage.toFixed(1)}</>}
                       </Text>
                     </div>
                   </div>
@@ -411,7 +364,7 @@ export function DashboardPage() {
               ))}
             </Card>
           ) : (
-            <Card size="small" style={{ borderRadius: 10, boxShadow: shadow }}>
+            <Card size="small" style={baseCard}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 8px' }}>
                 <CheckCircleOutlined style={{ fontSize: 28, color: STATUS_COLORS['Returning Series'], marginBottom: 8 }} />
                 <Text strong style={{ fontSize: 13 }}>All caught up</Text>
@@ -424,24 +377,17 @@ export function DashboardPage() {
 
       {/* Explore More */}
       <Row gutter={[16, 16]} style={{ marginTop: SECTION_GAP }}>
-        <Col xs={24} sm={12}>
-          <Card size="small" style={{ borderRadius: 10, boxShadow: shadow, height: '100%' }} styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' } }}>
-            <div>
-              <Text strong style={{ fontSize: 14, display: 'block' }}>Browse the full catalogue</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>Search, filter, and sort every show</Text>
-            </div>
-            <Button type="primary" icon={<UnorderedListOutlined />} onClick={() => navigate('/shows')}>Go to Shows</Button>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12}>
-          <Card size="small" style={{ borderRadius: 10, boxShadow: shadow, height: '100%' }} styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' } }}>
-            <div>
-              <Text strong style={{ fontSize: 14, display: 'block' }}>Dive into the analytics</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>14 charts on genres, ratings, watch time, and more</Text>
-            </div>
-            <Button icon={<BarChartOutlined />} onClick={() => navigate('/stats')}>Go to Statistics</Button>
-          </Card>
-        </Col>
+        {exploreCards.map(({ title, subtitle, button, icon, to, primary }) => (
+          <Col key={to} xs={24} sm={12}>
+            <Card size="small" style={{ ...baseCard, height: '100%' }} styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' } }}>
+              <div>
+                <Text strong style={{ fontSize: 14, display: 'block' }}>{title}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>{subtitle}</Text>
+              </div>
+              <Button type={primary ? 'primary' : 'default'} icon={icon} onClick={() => navigate(to)}>{button}</Button>
+            </Card>
+          </Col>
+        ))}
       </Row>
     </>
   )

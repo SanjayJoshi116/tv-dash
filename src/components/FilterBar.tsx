@@ -2,20 +2,12 @@ import { useMemo } from 'react'
 import { Button, Card, Col, Input, Row, Select, Tag, Typography } from 'antd'
 import { CloseCircleOutlined } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
+import type { Filters } from '../types/filters'
 import { uniqueGenres } from '../utils/derive'
-import { cardShadow } from '../constants/ui'
+import { SECTION_GAP, SORT_OPTIONS, cardStyle, sortStatuses } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
 
 const { Text } = Typography
-
-export type SortKey = 'recentFirst' | 'voteAverage' | 'popularity' | 'firstAirYear' | 'totalRuntimeWatched' | 'name'
-
-export interface Filters {
-  search: string
-  genres: string[]
-  status: string
-  sortBy: SortKey
-}
 
 interface Props {
   data: TvSeries[]
@@ -24,10 +16,14 @@ interface Props {
   resultCount: number
 }
 
-const STATUS_OPTIONS = ['', 'Ended', 'Returning Series', 'Canceled']
-
 export function FilterBar({ data, filters, onChange, resultCount }: Props) {
-  const genres = useMemo(() => uniqueGenres(data), [data])
+  const genreOptions = useMemo(() => uniqueGenres(data).map(g => ({ label: g, value: g })), [data])
+  // From the loaded data (like genres): no options that always give 0 results, and unknown
+  // statuses stay selectable
+  const statusOptions = useMemo(
+    () => sortStatuses(data.map(s => s.status).filter(Boolean)).map(s => ({ label: s, value: s })),
+    [data]
+  )
   const theme = useTheme()
 
   const hasActiveFilters = !!filters.search || filters.genres.length > 0 || !!filters.status
@@ -35,7 +31,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
   return (
     <Card
       size="small"
-      style={{ marginBottom: 24, borderRadius: 10, boxShadow: cardShadow(theme.isDark) }}
+      style={{ marginBottom: SECTION_GAP, ...cardStyle(theme.isDark) }}
     >
     <Row gutter={[16, 16]}>
       <Col xs={24} sm={8}>
@@ -58,7 +54,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
           style={{ width: '100%' }}
           value={filters.genres}
           onChange={genres => onChange({ ...filters, genres })}
-          options={genres.map(g => ({ label: g, value: g }))}
+          options={genreOptions}
           maxTagCount="responsive"
           allowClear
         />
@@ -72,7 +68,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
           value={filters.status || undefined}
           onChange={status => onChange({ ...filters, status: status ?? '' })}
           allowClear
-          options={STATUS_OPTIONS.filter(Boolean).map(s => ({ label: s, value: s }))}
+          options={statusOptions}
         />
       </Col>
       <Col xs={24} sm={6} md={5}>
@@ -82,14 +78,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
           style={{ width: '100%' }}
           value={filters.sortBy}
           onChange={sortBy => onChange({ ...filters, sortBy })}
-          options={[
-            { label: 'Recently Watched', value: 'recentFirst' },
-            { label: 'Rating ↓', value: 'voteAverage' },
-            { label: 'Popularity ↓', value: 'popularity' },
-            { label: 'Year ↓', value: 'firstAirYear' },
-            { label: 'Watch time ↓', value: 'totalRuntimeWatched' },
-            { label: 'Name A–Z', value: 'name' },
-          ]}
+          options={SORT_OPTIONS}
         />
       </Col>
     </Row>

@@ -1,4 +1,5 @@
-import type { TvSeries } from '../types/series'
+import type { NameCount, NameValue, TvSeries } from '../types/series'
+import { lookup } from './lookup'
 
 // CSV rows have no timestamp field — last row = most recently watched.
 export function recentFirst(data: TvSeries[]): TvSeries[] {
@@ -19,11 +20,28 @@ export function totalYearsWatched(data: TvSeries[]): number {
   return mins / 525600
 }
 
-export function avgRating(data: TvSeries[]): string {
-  const rated = data.filter(s => s.voteAverage > 0)
-  if (!rated.length) return '–'
-  const avg = rated.reduce((sum, s) => sum + s.voteAverage, 0) / rated.length
-  return avg.toFixed(1)
+// null when no show is rated — callers format for display ('–' / toFixed(1)) and color
+export function avgRating(data: TvSeries[]): number | null {
+  const ratings = data.flatMap(s => (s.voteAverage != null ? [s.voteAverage] : []))
+  if (!ratings.length) return null
+  return ratings.reduce((sum, v) => sum + v, 0) / ratings.length
+}
+
+// Descending comparator with unknown (null) values last — for rating / year sorts
+export function compareDescNullsLast(a: number | null, b: number | null): number {
+  if (a == null || b == null) return (a == null ? 1 : 0) - (b == null ? 1 : 0)
+  return b - a
+}
+
+// Row with the largest non-null `pick` value (first in data order on ties); undefined if none
+export function maxBy(data: TvSeries[], pick: (s: TvSeries) => number | null): TvSeries | undefined {
+  let best: TvSeries | undefined
+  let bestVal = -Infinity
+  for (const s of data) {
+    const v = pick(s)
+    if (v != null && v > bestVal) { best = s; bestVal = v }
+  }
+  return best
 }
 
 export function uniqueGenres(data: TvSeries[]): string[] {
@@ -32,8 +50,8 @@ export function uniqueGenres(data: TvSeries[]): string[] {
   return Array.from(set).sort()
 }
 
-export function genreDistribution(data: TvSeries[]): { name: string; value: number }[] {
-  const counts: Record<string, number> = {}
+export function genreDistribution(data: TvSeries[]): NameValue[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => s.genres.forEach(g => { counts[g] = (counts[g] || 0) + 1 }))
   return Object.entries(counts)
     .map(([name, value]) => ({ name, value }))
@@ -46,7 +64,7 @@ export function ratingBuckets(data: TvSeries[]): { range: string; count: number 
     count: 0,
   }))
   data.forEach(s => {
-    if (s.voteAverage > 0) {
+    if (s.voteAverage != null) {
       const idx = Math.min(Math.floor(s.voteAverage), 9)
       buckets[idx].count++
     }
@@ -68,15 +86,26 @@ export function topByWatchTime(data: TvSeries[], n = 10): TvSeries[] {
   return [...data].sort((a, b) => b.totalRuntimeWatched - a.totalRuntimeWatched).slice(0, n)
 }
 
+// Chart-label truncation: strings longer than `max` characters are cut to max-2 + '…'.
+// Counts code points (Array.from), not UTF-16 units, so an emoji is never split in half;
+// max is clamped to 2 so the result is never longer than the input.
+export function truncate(s: string, max = 20): string {
+  const chars = Array.from(s)
+  const limit = Math.max(max, 2)
+  return chars.length > limit ? chars.slice(0, limit - 2).join('') + '…' : s
+}
+
 export function formatRuntime(mins: number): string {
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
+  // CSV runtimes are Number()-parsed, so fractions can reach here
+  const total = Math.round(mins)
+  const h = Math.floor(total / 60)
+  const m = total % 60
   if (h === 0) return `${m}m`
   return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
-export function statusDistribution(data: TvSeries[]): { name: string; value: number }[] {
-  const counts: Record<string, number> = {}
+export function statusDistribution(data: TvSeries[]): NameValue[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => {
     if (s.status) counts[s.status] = (counts[s.status] || 0) + 1
   })
@@ -85,8 +114,8 @@ export function statusDistribution(data: TvSeries[]): { name: string; value: num
     .sort((a, b) => b.value - a.value)
 }
 
-export function networkDistribution(data: TvSeries[], n = 10): { name: string; value: number }[] {
-  const counts: Record<string, number> = {}
+export function networkDistribution(data: TvSeries[], n = 10): NameValue[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => s.networks.forEach(net => { counts[net] = (counts[net] || 0) + 1 }))
   return Object.entries(counts)
     .map(([name, value]) => ({ name, value }))
@@ -97,7 +126,7 @@ export function networkDistribution(data: TvSeries[], n = 10): { name: string; v
 export function watchTimeByDecade(data: TvSeries[]): { decade: string; hours: number }[] {
   const totals: Record<number, number> = {}
   data.forEach(s => {
-    if (s.firstAirYear && s.totalRuntimeWatched > 0) {
+    if (s.firstAirYear != null && s.totalRuntimeWatched > 0) {
       const decade = Math.floor(s.firstAirYear / 10) * 10
       totals[decade] = (totals[decade] || 0) + s.totalRuntimeWatched
     }
@@ -119,7 +148,7 @@ export function completionRate(data: TvSeries[]): number {
 }
 
 export function topGenreByWatchTime(data: TvSeries[]): string {
-  const totals: Record<string, number> = {}
+  const totals: Record<string, number> = Object.create(null)
   data.forEach(s => {
     if (s.totalRuntimeWatched > 0) {
       s.genres.forEach(g => { totals[g] = (totals[g] || 0) + s.totalRuntimeWatched })
@@ -133,7 +162,7 @@ export function topGenreByWatchTime(data: TvSeries[]): string {
 export function watchTimeByYear(data: TvSeries[]): { year: number; hours: number }[] {
   const totals: Record<number, number> = {}
   data.forEach(s => {
-    if (s.firstAirYear && s.totalRuntimeWatched > 0) {
+    if (s.firstAirYear != null && s.totalRuntimeWatched > 0) {
       totals[s.firstAirYear] = (totals[s.firstAirYear] || 0) + s.totalRuntimeWatched
     }
   })
@@ -143,7 +172,7 @@ export function watchTimeByYear(data: TvSeries[]): { year: number; hours: number
 }
 
 export function completionByGenre(data: TvSeries[]): { genre: string; pct: number }[] {
-  const acc: Record<string, { watched: number; total: number }> = {}
+  const acc: Record<string, { watched: number; total: number }> = Object.create(null)
   data.forEach(s => {
     if (!s.totalEpisodes) return
     s.genres.forEach(g => {
@@ -158,8 +187,8 @@ export function completionByGenre(data: TvSeries[]): { genre: string; pct: numbe
     .sort((a, b) => b.pct - a.pct)
 }
 
-export function topActors(data: TvSeries[], n = 10): { name: string; count: number }[] {
-  const counts: Record<string, number> = {}
+export function topActors(data: TvSeries[], n = 10): NameCount[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => s.actors.forEach(a => { counts[a] = (counts[a] || 0) + 1 }))
   return Object.entries(counts)
     .map(([name, count]) => ({ name, count }))
@@ -167,8 +196,8 @@ export function topActors(data: TvSeries[], n = 10): { name: string; count: numb
     .slice(0, n)
 }
 
-export function topCreators(data: TvSeries[], n = 10): { name: string; count: number }[] {
-  const counts: Record<string, number> = {}
+export function topCreators(data: TvSeries[], n = 10): NameCount[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => s.creators.forEach(c => { counts[c] = (counts[c] || 0) + 1 }))
   return Object.entries(counts)
     .map(([name, count]) => ({ name, count }))
@@ -182,11 +211,11 @@ const LANGUAGE_NAMES: Record<string, string> = {
   pt: 'Portuguese', hi: 'Hindi',
 }
 
-export function languageDistribution(data: TvSeries[], n = 10): { name: string; value: number }[] {
-  const counts: Record<string, number> = {}
+export function languageDistribution(data: TvSeries[], n = 10): NameValue[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => {
-    if (!s.language || s.language === 'N/A') return
-    const name = LANGUAGE_NAMES[s.language] ?? s.language.toUpperCase()
+    if (s.language == null) return
+    const name = lookup(LANGUAGE_NAMES, s.language) ?? s.language.toUpperCase()
     counts[name] = (counts[name] || 0) + 1
   })
   return Object.entries(counts)
@@ -195,10 +224,10 @@ export function languageDistribution(data: TvSeries[], n = 10): { name: string; 
     .slice(0, n)
 }
 
-export function ageRatingDistribution(data: TvSeries[]): { name: string; value: number }[] {
-  const counts: Record<string, number> = {}
+export function ageRatingDistribution(data: TvSeries[]): NameValue[] {
+  const counts: Record<string, number> = Object.create(null)
   data.forEach(s => {
-    if (!s.ageRating || s.ageRating === 'N/A') return
+    if (s.ageRating == null) return
     counts[s.ageRating] = (counts[s.ageRating] || 0) + 1
   })
   return Object.entries(counts)
