@@ -2,12 +2,24 @@
 
 ## Open
 
-- [ ] **`ThemeToggle.tsx` — `Select` has no `id`/`name`.** Breaks the form-field convention in CLAUDE.md (see `FilterBar.tsx`).
-- [ ] **`series-search.py` — network calls block the Tk main thread** (search, save, season fetches freeze the window). Needs worker threads + `root.after`; untested GUI change, deferred.
-- [ ] **`series-search.py` — API key can appear in a local error dialog** (requests error text includes the URL). Not stored or logged; optional: TMDB v4 Bearer header or strip the query string.
+_None._
+
+## Fixed in 0.4.13 (2026-11-24)
+
+- [x] `series-search.py` — `CsvStore.update` could truncate the CSV (open "w", then a bad extra-field row raised mid-write)
+- [x] `series-search.py` — Excel UTF-8 BOM hid existing rows → duplicate TV IDs appended
+- [x] `series-search.py` — same season counted twice (two panels / file changed while fetching)
+- [x] `series-search.py` — save errors only printed to the console (no dialog)
+- [x] `ShowDetailPage` — stat tile values clipped / overflowing at 600–1250px (regression within 0.4.13)
+- [x] `package.json` — `test:gen` assumed a `python` command
+- [x] `series-search.py` — network calls blocked the Tk main thread (window froze during search / save / season fetches)
+- [x] `series-search.py` — API key could appear in an error dialog (request URL in the error text)
+- [x] `series-search.py` — a failed Next / Prev left the page counter on the new page while the table showed the old one
+- [x] `series-search.py` — Next / Prev paged whatever was typed in the entry, not the search on screen
 
 ## Fixed in 0.4.11 (2026-11-24)
 
+- [x] `ThemeToggle.tsx` — `Select` had no `id` / accessible label (form-field convention)
 - [x] `series-search.py` — Enter / Next / Prev mid-load desynced the page counter from the table (regression from 0.4.10)
 - [x] `series-search.py` — failed season fetch saved the season with 0 episodes, blocking re-add
 - [x] `derive.ts` `completionByGenre` — plain-object map indexed by CSV genres (`__proto__` / `constructor`)

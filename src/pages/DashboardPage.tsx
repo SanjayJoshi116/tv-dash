@@ -25,6 +25,7 @@ import {
   avgRating,
   maxBy,
   completionRate,
+  formatRating,
   formatRuntime,
   genreDistribution,
   ratingBuckets,
@@ -34,7 +35,7 @@ import {
   totalEpisodesWatched,
   totalHoursWatched,
 } from '../utils/derive'
-import { SECTION_GAP, STATUS_COLORS, STATUS_TAG_COLORS, cardShadow, cardStyle, completionColor, ratingColor, statusHex } from '../constants/ui'
+import { SECTION_GAP, STAR_COLOR, STATUSES, cardShadow, cardStyle, completionColor, ratingColor, statusHex } from '../constants/ui'
 import { activateOnKey } from '../utils/a11y'
 import { PosterThumb } from '../components/PosterThumb'
 import { StatCard } from '../components/StatCard'
@@ -151,7 +152,7 @@ export function DashboardPage() {
   const statCards = [
     { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: theme.chartColors[0] },
     { title: 'Hours Watched', value: hours, suffix: 'h', prefix: <ClockCircleOutlined />, color: theme.chartColors[3] },
-    { title: 'Avg Rating', value: avg?.toFixed(1) ?? '–', suffix: '/ 10', prefix: <StarOutlined />, color: avg == null ? theme.chartText : ratingColor(avg) },
+    { title: 'Avg Rating', value: formatRating(avg), suffix: '/ 10', prefix: <StarOutlined />, color: ratingColor(avg) ?? theme.chartText },
     { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: theme.chartColors[5] },
     { title: 'Completion Rate', value: completion, suffix: '%', prefix: <CheckCircleOutlined />, color: completionColor(completion) },
   ]
@@ -169,7 +170,7 @@ export function DashboardPage() {
       label: 'Top Rated',
       icon: <StarFilled />,
       series: topRated,
-      detail: s => s.voteAverage != null && <Text style={{ fontSize: 12, color: ratingColor(s.voteAverage) }}><StarFilled style={{ fontSize: 11 }} /> {s.voteAverage.toFixed(1)} rating</Text>,
+      detail: s => s.voteAverage != null && <Text style={{ fontSize: 12, color: ratingColor(s.voteAverage) }}><StarFilled style={{ fontSize: 11 }} /> {formatRating(s.voteAverage)} rating</Text>,
     },
     {
       label: 'Newest Release',
@@ -262,7 +263,7 @@ export function DashboardPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                           <Text strong ellipsis style={{ display: 'block', fontSize: 13, flex: 1, minWidth: 0 }}>{series.name}</Text>
                           {series.status === 'Returning Series' && (
-                            <Tag color={STATUS_TAG_COLORS['Returning Series']} style={{ fontSize: 10, margin: 0, lineHeight: '16px', padding: '0 4px' }}>New eps</Tag>
+                            <Tag color={STATUSES['Returning Series'].tag} style={{ fontSize: 10, margin: 0, lineHeight: '16px', padding: '0 4px' }}>New eps</Tag>
                           )}
                         </div>
                         <Progress percent={pct} size="small" strokeColor={theme.token.colorPrimary} showInfo={false} style={{ marginBottom: 3 }} />
@@ -285,7 +286,7 @@ export function DashboardPage() {
                     <Text strong ellipsis style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>{series.name}</Text>
                     <Text type="secondary" style={{ fontSize: 11 }}>{series.firstAirYear ?? '–'}</Text>
                     {series.voteAverage != null && (
-                      <Text type="secondary" style={{ fontSize: 11 }}> · <StarFilled style={{ color: '#faad14', fontSize: 10 }} /> {series.voteAverage.toFixed(1)}</Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}> · <StarFilled style={{ color: STAR_COLOR, fontSize: 10 }} /> {formatRating(series.voteAverage)}</Text>
                     )}
                     <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 2 }}>{series.episodesWatched}/{series.totalEpisodes} eps</Text>
                   </ShowRowCard>
@@ -356,7 +357,7 @@ export function DashboardPage() {
                       <Text strong ellipsis style={{ display: 'block', fontSize: 13 }}>{series.name}</Text>
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         {series.firstAirYear ?? '–'}
-                        {series.voteAverage != null && <> · <StarFilled style={{ color: '#faad14', fontSize: 10 }} /> {series.voteAverage.toFixed(1)}</>}
+                        {series.voteAverage != null && <> · <StarFilled style={{ color: STAR_COLOR, fontSize: 10 }} /> {formatRating(series.voteAverage)}</>}
                       </Text>
                     </div>
                   </div>
@@ -366,7 +367,7 @@ export function DashboardPage() {
           ) : (
             <Card size="small" style={baseCard}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 8px' }}>
-                <CheckCircleOutlined style={{ fontSize: 28, color: STATUS_COLORS['Returning Series'], marginBottom: 8 }} />
+                <CheckCircleOutlined style={{ fontSize: 28, color: STATUSES['Returning Series'].hex, marginBottom: 8 }} />
                 <Text strong style={{ fontSize: 13 }}>All caught up</Text>
                 <Text type="secondary" style={{ fontSize: 12, marginTop: 2 }}>Every show in your list has been started</Text>
               </div>

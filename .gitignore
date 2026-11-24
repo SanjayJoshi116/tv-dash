@@ -1,4 +1,7 @@
 public/tv_series.csv
+public/*.bak
+# CsvStore.update writes here, then os.replace()s it over tv_series.csv (left only if the process dies mid-write)
+public/.tv_series-*.csv.tmp
 
 node_modules/
 dist/

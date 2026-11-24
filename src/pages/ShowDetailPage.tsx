@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useParams, useNavigate } from 'react-router-dom'
-import { Button, Card, Col, Descriptions, Empty, Grid, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
+import { Button, Card, Col, Descriptions, Empty, Grid, Progress, Row, Space, Tag, Typography } from 'antd'
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
@@ -12,10 +12,11 @@ import {
   VideoCameraOutlined,
 } from '@ant-design/icons'
 import { useTvDataContext } from '../context/useTvDataContext'
-import { completionRate, formatRuntime } from '../utils/derive'
+import { completionRate, formatRating, formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
 import { SECTION_GAP, SPACING, cardStyle as baseCardStyle, completionColor, genreTagColor, ratingColor, statusTagColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
+import { StatCard } from '../components/StatCard'
 import { ErrorState } from '../components/ErrorState'
 
 const { Title, Text } = Typography
@@ -86,7 +87,7 @@ export function ShowDetailPage() {
     )
   }
 
-  const color = series.voteAverage == null ? undefined : ratingColor(series.voteAverage)
+  const color = ratingColor(series.voteAverage)
   const completion = completionRate([series])
   const allSeasons = Array.from({ length: series.seasons ?? 0 }, (_, i) => i + 1)
   const cardStyle = baseCardStyle(theme.isDark)
@@ -169,7 +170,7 @@ export function ShowDetailPage() {
                 fontWeight: 700,
                 fontSize: 14,
               }}>
-                <StarFilled />{series.voteAverage.toFixed(1)}
+                <StarFilled />{formatRating(series.voteAverage)}
               </span>
             )}
             {series.firstAirYear != null && <Text type="secondary">{series.firstAirYear}</Text>}
@@ -225,16 +226,14 @@ export function ShowDetailPage() {
           {/* Stat cards inline */}
           <Row gutter={[16, 16]}>
             {[
-              { title: 'Episodes Watched', value: series.episodesWatched, suffix: `/ ${series.totalEpisodes}`, prefix: <PlayCircleOutlined /> },
-              { title: 'Watch Time', value: formatRuntime(series.totalRuntimeWatched), prefix: <ClockCircleOutlined /> },
-              { title: 'Seasons Watched', value: series.seasonsWatched.length, suffix: `/ ${series.seasons ?? '–'}`, prefix: <TrophyOutlined /> },
-              // formatter skips Statistic's thousands separator ("2,019")
-              { title: 'First Aired', value: series.firstAirYear ?? '–', prefix: <CalendarOutlined />, formatter: (v: string | number) => String(v) },
-            ].map(({ title, value, suffix, prefix, formatter }) => (
-              <Col key={title} xs={12} sm={6}>
-                <Card size="small" style={cardStyle}>
-                  <Statistic title={title} value={value} suffix={suffix} prefix={prefix} formatter={formatter} valueStyle={{ fontSize: 20 }} />
-                </Card>
+              { title: 'Episodes Watched', value: series.episodesWatched, suffix: `/ ${series.totalEpisodes}`, prefix: <PlayCircleOutlined />, color: theme.chartColors[0] },
+              { title: 'Watch Time', value: formatRuntime(series.totalRuntimeWatched), prefix: <ClockCircleOutlined />, color: theme.chartColors[3] },
+              { title: 'Seasons Watched', value: series.seasonsWatched.length, suffix: `/ ${series.seasons ?? '–'}`, prefix: <TrophyOutlined />, color: theme.chartColors[5] },
+              { title: 'First Aired', value: series.firstAirYear ?? '–', prefix: <CalendarOutlined />, color: theme.chartColors[2], formatter: String },
+            ].map(({ title, ...stat }) => (
+              // 4 across only from xl — below that the hero's text column (beside the poster) is too narrow
+              <Col key={title} xs={12} xl={6}>
+                <StatCard title={title} {...stat} shadow={cardStyle.boxShadow} compact />
               </Col>
             ))}
           </Row>

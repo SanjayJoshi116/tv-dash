@@ -1,16 +1,17 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
-import { Button, Grid, Layout, Menu, Typography, theme as antTheme } from 'antd'
+import { Button, Grid, Layout, Menu, Typography } from 'antd'
 import { BarChartOutlined, DashboardOutlined, MenuFoldOutlined, MenuUnfoldOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { ThemeToggle } from './ThemeToggle'
 import { LoadingState } from './LoadingState'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { CsvWarningBanner } from './CsvWarningBanner'
+import { BottomNav, BOTTOM_NAV_HEIGHT } from './BottomNav'
 import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
 
 const { Sider, Header, Content } = Layout
-const { Title, Text } = Typography
+const { Title } = Typography
 
 interface Props {
   activeThemeName: string
@@ -23,8 +24,6 @@ const NAV_ITEMS = [
   { key: '/stats', label: 'Statistics', icon: <BarChartOutlined /> },
 ]
 
-const BOTTOM_NAV_HEIGHT = 60
-
 function loadSidebarCollapsed(): boolean {
   try { return localStorage.getItem('tvdash-sidebar') === 'true' } catch { return false }
 }
@@ -36,65 +35,21 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
   const location = useLocation()
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
-  const { token } = antTheme.useToken()
 
   const [collapsed, setCollapsed] = useState(loadSidebarCollapsed)
   const [broken, setBroken] = useState(false)
-  const [navVisible, setNavVisible] = useState(true)
   const contentRef = useRef<HTMLDivElement>(null)
-  const lastScrollY = useRef(0)
-  // Mirrors navVisible so the scroll handler only calls setState on an actual change
-  const navVisibleRef = useRef(true)
 
   const handleCollapse = (v: boolean) => {
     setCollapsed(v)
     try { localStorage.setItem('tvdash-sidebar', String(v)) } catch { /* ignore storage errors */ }
   }
 
-  // Always show the bar on the page it lands on after navigating. Tried the
-  // "adjust state during render" alternative (compare against a `lastPathname`
-  // state value, setState in the render body) to satisfy
-  // react-hooks/set-state-in-effect without an effect — it's React's own
-  // documented pattern for this exact case, but it genuinely misbehaves here
-  // under React.StrictMode (confirmed via a debug trace: it oscillates and
-  // settles on the wrong value). A plain effect is what's actually correct.
+  // Content is the scroll container (not window), so the router never resets it.
+  // (Bottom-nav visibility lives in BottomNav, mounted only below lg.)
   useEffect(() => {
-    navVisibleRef.current = true
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNavVisible(true)
-    // Content is the scroll container (not window), so the router never resets it
     contentRef.current?.scrollTo(0, 0)
-    lastScrollY.current = 0
   }, [location.pathname])
-
-  useEffect(() => {
-    if (!broken) return
-    // Hidden state survives a desktop round-trip; re-show the bar so it's never stuck off-screen
-    navVisibleRef.current = true
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- see note above
-    setNavVisible(true)
-    const el = contentRef.current
-    if (!el) return
-    lastScrollY.current = el.scrollTop
-    // Entering mobile reflows the grid (Sider collapse + column change), and browser scroll
-    // anchoring fires scroll events with large positive deltas. Ignore those briefly so they
-    // aren't mistaken for a user scroll-down that re-hides the bar. Anchoring only moves an
-    // already-scrolled container, so a fresh load at scrollTop 0 reacts immediately.
-    const ignoreUntil = el.scrollTop > 0 ? performance.now() + 800 : 0
-    const handleScroll = () => {
-      const y = el.scrollTop
-      if (performance.now() < ignoreUntil) { lastScrollY.current = y; return }
-      const delta = y - lastScrollY.current
-      const next = y < 24 || delta < -8 ? true : delta > 8 ? false : navVisibleRef.current
-      if (next !== navVisibleRef.current) {
-        navVisibleRef.current = next
-        setNavVisible(next)
-      }
-      lastScrollY.current = y
-    }
-    el.addEventListener('scroll', handleScroll, { passive: true })
-    return () => el.removeEventListener('scroll', handleScroll)
-  }, [broken])
 
   // Exact match — /shows/12/extra is a 404, not a show detail page
   const isShowDetail = useMatch('/shows/:id') !== null
@@ -201,48 +156,13 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
       </Layout>
 
       {broken && (
-        <nav style={{
-          position: 'fixed',
-          insetBlockEnd: 0,
-          insetInlineStart: 0,
-          insetInlineEnd: 0,
-          height: BOTTOM_NAV_HEIGHT,
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          display: 'flex',
-          background: theme.headerBg,
-          borderTop: `1px solid ${theme.borderColor}`,
-          zIndex: 1000,
-          transform: navVisible ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.25s ease',
-        }}>
-          {NAV_ITEMS.map(item => {
-            const active = item.key === selectedKey
-            return (
-              <button
-                key={item.key}
-                onClick={() => navigate(item.key)}
-                aria-label={item.label}
-                aria-current={active ? 'page' : undefined}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 2,
-                  border: 'none',
-                  background: 'transparent',
-                  color: active ? token.colorPrimary : token.colorTextSecondary,
-                  fontSize: 20,
-                  cursor: 'pointer',
-                }}
-              >
-                {item.icon}
-                <Text style={{ fontSize: 11, color: 'inherit' }}>{item.label}</Text>
-              </button>
-            )
-          })}
-        </nav>
+        <BottomNav
+          items={NAV_ITEMS}
+          selectedKey={selectedKey}
+          pathname={location.pathname}
+          scrollRef={contentRef}
+          onNavigate={navigate}
+        />
       )}
     </Layout>
   )

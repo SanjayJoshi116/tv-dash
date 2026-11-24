@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.4.13] — 2026-11-24
+
+Clears the IDEAS "Next Up" backlog (items 5–7) and both open BUG_BACKLOG entries.
+
+### CSV Generator (`series-search.py`)
+
+- **No more frozen window:** every TMDB call (search, details, save-time detail fetch, season fetches) runs in a worker thread; results return through a queue the Tk loop polls, so widgets and dialogs stay on the main thread. Status shows Loading... / Saving...; Save is disabled while a save is in flight
+- **API key never shown:** request errors are raised as `TmdbError` with `api_key=***` (requests' messages include the full URL)
+- **Structure:** `TmdbClient` / `CsvStore` / `App` classes, `main()` behind `if __name__ == "__main__"` — importable without opening a window. Missing key exits with a message instead of a traceback
+- Page counter only changes after a fetch succeeds (a failed Next left it on the new page while the table showed the old one); Next / Prev page through the last successful search, not whatever is in the entry box
+- Save re-reads the row right before writing; one dialog per save, with the failure reason when a season couldn't be fetched
+- `npm run test:gen` rewritten against the importable `App` (37 checks after the fixes below), incl. UI responsiveness while a request blocks, every request off the main thread, key redaction, failed-page handling
+
+### Dashboard / UI
+
+- `ratingColor` accepts `null` (→ `undefined`); new `formatRating` (`derive.ts`) replaces 7 inline `toFixed(1)` / `'–'` call sites
+- `STATUSES` exported for literal access (`STATUSES['Returning Series'].hex`) — `STATUS_COLORS` / `STATUS_TAG_COLORS` removed; `TvSeries.status` typed `KnownStatus | (string & {})`
+- `STAR_COLOR` constant for the gold star in Dashboard lists (was a hardcoded `#faad14` twice)
+- Show Detail stat tiles use `StatCard` (now with an optional `formatter`) — same look as Dashboard / Statistics
+- Mobile bottom nav extracted to `BottomNav` with its own visibility state: scroll-direction flips no longer re-render the whole shell, and the `[broken]` re-show effect is gone (mounting resets it)
+
+### Code-review fixes (0.4.13)
+
+- **`series-search.py` could truncate the CSV:** `CsvStore.update` opened the file with `"w"` and then wrote rows — a hand-edited row with an extra field (or any error mid-write) left it cut off. Now a temp file + `os.replace`, extra fields ignored
+- **Excel BOM hid every existing row** (`\ufeffTV ID` header) → every save appended a duplicate. Reads use `utf-8-sig`
+- **Seasons could be counted twice** (two panels for the same show, or a hand edit while fetching): only seasons the re-read row lacks are added; otherwise `Already Saved`
+- **Save errors were silent** (only a console traceback — e.g. CSV open in Excel): now an error dialog, UI re-enabled
+- **Show Detail stat values clipped / overflowed** at ~600–1250px after the `StatCard` switch: 2×2 below `xl`, value wrapper `minWidth: 0`; `StatCard` compact tiles carry their own hover text (StatsBar's wrapper `div` removed)
+- `npm run test:gen` works where Python is `python3` (`scripts/run-python.mjs`)
+- e2e `expect` timeout 15s — a cold dev server compiling routes on first hit made the Dashboard specs flaky under parallel workers
+- Tests: generator 37 checks (+ concurrent double-save, extra-field rewrite, BOM, write failure, idle polling); e2e 17 (+ stat-tile overflow at 4 widths)
+
+### Simplify pass (0.4.13)
+
+- `series-search.py`: `TmdbClient(session=)` / `App(dialogs=)` injection (the test harness passes fakes — no global monkeypatching); redaction only in `TmdbClient.get`; season fetches in parallel; result queue polled only while work is pending (no 30ms timer while idle); `first_runtime` / `air_year` shared by the table and the CSV row
+- `KNOWN_STATUSES` / `KnownStatus` moved to `src/types/series.ts` (the data type no longer imports UI constants); `STATUSES` keyed off it; `ratingColor` single signature
+- `BottomNav` reads the real `scrollTop` on navigation instead of assuming `AppLayout` already reset it
+- e2e: `csv` fixture option (real-CSV smoke test reuses the console-error guard), `TEST_CSV` built with the unit tests' `csv()` header, deterministic broken poster (string filter removed), `toBeInViewport` for nav visibility, `goBack()` instead of reloads, shared helpers
+- CI caches Playwright's Chromium per version
+
+### Build / Data
+
+- `npm run build` uses `tsc -b` — also type-checks `vite.config.ts` (plain `tsc` skipped it)
+- `public/tv_series.csv`: 114 legacy `N/A` cells (Episode Runtime, Age Rating, Poster URL) rewritten to blank; backup at `public/tv_series.csv.bak` (gitignored)
+
+### Tests
+
+- Unit: `ratingColor(null)`, `formatRating`, `STATUSES` — 80 total. E2E: new `mobile-nav` spec (hide/show on scroll, re-show on navigation, desktop → mobile while scrolled) + stat-tile overflow — 17 total
+
+## [0.4.12] — 2026-11-24
+
+Test tooling — the ad hoc browser and generator checks from 0.4.11 are now part of the repo.
+
+### Added
+
+- **Browser e2e suite** (`e2e/`, `@playwright/test`, `npm run e2e`): CSV warning banner, Dashboard Highlights (click / Enter / Space, poster fallback), Not Started, Show Detail unknown values (blank / `N/A` / negative / fractional / `1e7`), URL-keyed poster fallback across SPA navigation, Shows search + card unknowns, form-field ids. Serves a synthetic CSV via route interception; fails any test with a console error. Real-CSV smoke test skips when `public/tv_series.csv` is absent
+- **CI `e2e` job** (Chromium, HTML report uploaded on failure)
+- **`npm run test:gen`** (`scripts/test_series_search.py`): drives `series-search.py` through its real Tk widgets with TMDB faked, on a temp copy — paging while loading, new / existing show saves, failed season fetches. Local only (needs a display)
+
+### Changed
+
+- `vitest.config.ts` limits `include` to `src/**/*.test.{ts,tsx}` (Vitest would otherwise collect `e2e/*.spec.ts`)
+- Lock regenerated with npm 10 (CI's)
+
 ## [0.4.11] — 2026-11-24
 
 Whole-project pass over the uncommitted v0.4.x work (simplify, then code-review).
@@ -20,7 +84,9 @@ Whole-project pass over the uncommitted v0.4.x work (simplify, then code-review)
 - **`derive.ts` `completionByGenre`:** plain `{}` map indexed by CSV genre — `__proto__` wrote `NaN` onto `Object.prototype`, `constructor` vanished. Now `Object.create(null)`
 - **Parser:** `Seasons` must be an integer ≤ 1000 (`seasonCount`) — `1e7` froze Show Detail, `2.5` showed "2 / 2.5"; `Episode Runtime` ≤ 0 → `null` (`-5 min` was shown)
 - `languageDistribution` / `ageRatingDistribution` / Show Detail runtime use `!= null`, not truthiness
+- `ThemeToggle` `Select` gets `id="theme-select"` + `aria-label` (form-field convention; it has no visible label)
 - `antd` range raised to `^5.25.0` (`Tabs` `destroyOnHidden` needs 5.25; worked only via the lock)
+- `package-lock.json` regenerated with npm 10 (CI's): local npm 12 had dropped vitest's nested `esbuild@0.28` (optional peer of `vite@8`), failing `npm ci`
 
 ### Tests
 

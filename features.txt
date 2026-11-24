@@ -1,5 +1,5 @@
 TV Dashboard — Feature List
-Version 0.4.11
+Version 0.4.13
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
@@ -52,7 +52,8 @@ SHOW DETAIL PAGE
 - Overview with 4-line clamp + expand/collapse toggle — toggle shown only
   when text actually overflows (ResizeObserver); resets on show change
 - Genre tags
-- Stat cards: episodes watched, total watch time, seasons watched, first air year
+- Stat cards (shared StatCard tiles, same look as Dashboard): episodes
+  watched, total watch time, seasons watched, first air year
 - Show Details card: seasons, total episodes, episode runtime, popularity,
   vote count, first air date, last air date (formatted in UTC — no off-by-one-day
   west of UTC; invalid dates show –),
@@ -134,7 +135,14 @@ CSV GENERATOR (series-search.py)
 - Re-adding a show updates existing row (no duplicates)
 - A season whose episode fetch fails is skipped and reported (stays
   addable later), never saved as 0 episodes
-- Search / paging buttons ignored while a page is loading
+- Search / paging buttons ignored while a page is loading; page counter
+  only moves once a page loads; Next / Prev page through the last search
+- Window stays responsive: all TMDB requests run in background threads
+  (Loading... / Saving... status, Save disabled while saving)
+- API key stripped from any error message
+- Safe CSV writes: rewrites go through a temp file (never a half-written
+  CSV), Excel's UTF-8 BOM is handled, a season already in the CSV is never
+  counted twice, and any save error is shown in a dialog
 - Writes public/tv_series.csv directly (path resolved from the script);
   unknown values written blank; appends follow the existing header
 
@@ -163,6 +171,9 @@ Mobile (viewport < lg breakpoint):
 ═══════════════════════════════════════
 TECHNICAL
 ═══════════════════════════════════════
+- Tests: Vitest unit tests (npm test), Playwright browser e2e with a
+  synthetic CSV (npm run e2e, also in CI), Tk-driven check of
+  series-search.py with TMDB faked (npm run test:gen, local)
 - Static SPA — no backend, no build-time data
 - CSV fetched at runtime via fetch() + PapaParse
 - 100% React inline styles (no CSS files in src/)

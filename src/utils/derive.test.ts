@@ -5,6 +5,7 @@ import {
   compareDescNullsLast,
   completionByGenre,
   completionRate,
+  formatRating,
   formatRuntime,
   truncate,
   genreDistribution,
@@ -335,6 +336,12 @@ describe('seasonsWatchedDepth', () => {
     const data = [makeSeries({ seasonsWatched: [1, 2, 3, 4] }), makeSeries({ seasonsWatched: [1] })]
     const result = seasonsWatchedDepth(data)
     expect(result.map(b => b.depth)).toEqual(['1 season', '2 seasons', '3 seasons', '4+ seasons'])
+  })
+})
+
+describe('formatRating', () => {
+  it('formats one decimal, or a dash when unknown', () => {
+    expect([formatRating(8), formatRating(7.25), formatRating(null)]).toEqual(['8.0', '7.3', '–'])
   })
 })
 

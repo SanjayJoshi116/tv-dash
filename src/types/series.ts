@@ -1,3 +1,8 @@
+// TMDB statuses the UI knows (order = display order, e.g. FilterBar / sortStatuses). Colors per
+// status live in constants/ui.ts STATUSES, keyed off this list.
+export const KNOWN_STATUSES = ['Returning Series', 'Ended', 'Canceled', 'In Production', 'Planned', 'Pilot'] as const
+export type KnownStatus = (typeof KNOWN_STATUSES)[number]
+
 // Missing values are normalized once in parseSeriesCsv: `null` means "unknown" (blank, 0 or
 // 'N/A' in the CSV) — consumers check `!= null`, never `> 0` or `=== 'N/A'`
 export interface TvSeries {
@@ -10,7 +15,9 @@ export interface TvSeries {
   genres: string[]
   creators: string[]
   networks: string[]
-  status: string
+  // Known TMDB statuses autocomplete; any other CSV value is still accepted
+  // (`string & {}` stops TS collapsing the union to plain `string`)
+  status: KnownStatus | (string & {})
   totalEpisodes: number
   lastEpisodeAirDate: string
   popularity: number

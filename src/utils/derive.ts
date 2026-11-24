@@ -20,7 +20,12 @@ export function totalYearsWatched(data: TvSeries[]): number {
   return mins / 525600
 }
 
-// null when no show is rated — callers format for display ('–' / toFixed(1)) and color
+// One decimal, or '–' for an unknown rating (null)
+export function formatRating(v: number | null): string {
+  return v?.toFixed(1) ?? '–'
+}
+
+// null when no show is rated — callers format with formatRating and color with ratingColor
 export function avgRating(data: TvSeries[]): number | null {
   const ratings = data.flatMap(s => (s.voteAverage != null ? [s.voteAverage] : []))
   if (!ratings.length) return null

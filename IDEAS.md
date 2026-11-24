@@ -2,17 +2,17 @@
 
 Review tracker — status per module. ✅ done · 🟡 in progress · ⬜ not started. Bugs live in [BUG_BACKLOG.md](BUG_BACKLOG.md).
 
-_Last updated 2026-11-24 (v0.4.11)._ All modules reviewed (simplify + code-review + security-review), plus a whole-project simplify + code-review pass in v0.4.11.
+_Last updated 2026-11-24 (v0.4.13)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 80 unit, 17 e2e (Playwright, CI), 37 generator checks (`npm run test:gen`, local).
 
 ## Next Up
 
-1. **Manual run of `series-search.py`** (v0.4.10/0.4.11 changes are headless-tested only): add a season to an existing show (saved seasons checked?), add a new show (row in `public/tv_series.csv`?), press Enter / Next mid-load (page counter stays in sync?), simulate a failed season fetch (season left unsaved + reported?).
-2. Browser-check `CsvWarningBanner`, the v0.4.9 `'–'` / hidden unknown values, and v0.4.11's Dashboard Highlights (now `ShowRowCard`) + Show Detail poster fallback (unit-tested / type-checked only).
-3. Quick fix: `ThemeToggle` `Select` `id` (BUG_BACKLOG).
-4. Make the Playwright check permanent (see Components → Follow-ups).
-5. `series-search.py`: move network calls off the Tk main thread; `App` class instead of globals/closures (would also make it importable for tests).
-6. v0.4.11 simplify skips worth revisiting: `ratingColor(null)` + `formatRating` helper (5 call sites), collapse `STATUS_COLORS`/`STATUS_TAG_COLORS` into exported `STATUSES`, `StatCard` with `formatter` for Show Detail stats, bottom-nav state into its own component, Dashboard star `#faad14` vs `ratingColor`.
-7. Optional: one-off rewrite of `N/A` → `''` in the existing CSV; `status: KnownStatus | (string & {})` in `TvSeries`; `tsc -b` as the build command (type-checks `vite.config.ts`).
+1. ~~Manual run of `series-search.py`~~ — ✅ 2026-11-24: driven through its real Tk widgets (Enter key, buttons, season checkboxes, Confirm) from a scratch copy with TMDB faked — 25/25: search + details fill, Enter / Next / Prev / Search mid-load keep the page counter in sync, new show appended (Seasons / Runtime from details, not `—`), saved seasons shown checked + disabled, existing row updated in place, failed season skipped + reported + still addable, all-failed saves nothing, API key never in the CSV. Harness confirmed to catch the old paging bug. Not covered: real TMDB responses (needs a live key).
+2. ~~Browser check~~ — ✅ 2026-11-24 (Playwright, synthetic CSV via route interception, 37/37 twice): `CsvWarningBanner` (count, record numbers, duplicate / invalid ID, dismiss), Highlights via `ShowRowCard` (right shows, aria-labels, click / Enter / Space navigate, broken-poster fallback), `'–'` for blank / 0 / N/A / fractional / huge / negative values on Dashboard, Show Detail and Shows (no `N/A`, `0.0`, `2.5`, `-5 min`; `1e7` seasons renders instantly), URL-keyed poster fallback across SPA navigation, search, `#theme-select`; real CSV: no banner, no console errors, all posters load.
+3. ~~Quick fix: `ThemeToggle` `Select` `id`~~ (done in v0.4.11)
+4. ~~Make the Playwright check permanent~~ — ✅ v0.4.12: `e2e/` + `npm run e2e` + CI `e2e` job; generator check is `npm run test:gen` (local only).
+5. ~~`series-search.py` off the main thread + `App` class~~ — ✅ v0.4.13: `TmdbClient` / `CsvStore` / `App`, workers + polled result queue, API key redacted from errors, importable (`npm run test:gen` imports it).
+6. ~~v0.4.11 simplify skips~~ — ✅ v0.4.13: `ratingColor(null)` + `formatRating`, exported `STATUSES` (derived maps removed), `StatCard` `formatter` on Show Detail, `BottomNav` component, `STAR_COLOR` (kept gold, by choice).
+7. ~~Optional cleanups~~ — ✅ v0.4.13: CSV `N/A` → `''` (114 cells, backup `public/tv_series.csv.bak`), `status: KnownStatus | (string & {})`, `tsc -b` build.
 
 ## Project Modules
 
@@ -37,7 +37,8 @@ Full list + remaining open items in [BUG_BACKLOG.md](BUG_BACKLOG.md). Fix notes 
 No unsafe sinks in `src/` (`dangerouslySetInnerHTML`/`innerHTML`/`eval`/`href`/`window.open`/`location.*`); CSV text rendered via React escaping; `:id` only used in `Number(id)` lookup; `navigate()` targets are static or numeric; localStorage reads type-checked.
 
 ### Components (`src/components/`) — ✅ Review complete (2026-11-23/24: simplify, code-review, security-review, Playwright browser check)
-- `AppLayout.tsx` — Sider + mobile bottom nav; hosts `RouteErrorBoundary` + `Suspense` around `Outlet`
+- `AppLayout.tsx` — Sider + Header + Content shell; hosts `RouteErrorBoundary` + `Suspense` around `Outlet`
+- `BottomNav.tsx` — mobile bottom nav with its own scroll-driven visibility state (extracted from AppLayout in v0.4.13)
 - `ChartsSection.tsx` — 14 Recharts charts in 4 tabs; `AnimatedPie` child owns pie legend fade (added 2026-11-24)
 - `ShowCard.tsx`
 - `ShowGrid.tsx`
@@ -75,14 +76,14 @@ Ad-hoc script (not in repo): routes + titles, 404, trailing slash, scroll reset,
 #### Skipped / deferred
 - Fully data-driven chart config (large rewrite; `countBarChart` covers most of it)
 - ~~Single `STATUSES` source~~ (done in v0.4.8); ~~`SORT_OPTIONS` duplication~~ (done in v0.4.9)
-- `cardStyle(isDark)` helper (~10 call sites, mostly in pages)
+- ~~`cardStyle(isDark)` helper~~ (done in v0.4.11)
 
 #### Follow-ups
-- `ThemeToggle` `Select` has no `id` → BUG_BACKLOG
-- Permanent Playwright e2e suite (`@playwright/test` + `npm run e2e` + CI job) — currently ad hoc only
+- ~~`ThemeToggle` `Select` has no `id`~~ (done in v0.4.11)
+- ~~Permanent Playwright e2e suite~~ (done in v0.4.12)
 
 ### Context (`src/context/`) — ✅ Review complete (2026-11-24: simplify, code-review, security-review, Playwright check)
-- `TvDataContext.tsx` — `TvDataProvider` only (memoized value)
+- `TvDataContext.tsx` — `TvDataProvider` only (passes `useTvData()`'s memoized value straight through, v0.4.11)
 - `useTvDataContext.ts` — context object (`null` default) + `useTvDataContext()` that throws outside the provider; component-free for Fast Refresh (added 2026-11-24)
 
 #### Simplify — ✅ 3 fixes (2026-11-24)
@@ -130,7 +131,7 @@ Skipped rows console-only (important — now `CsvWarningBanner` + all-skipped fa
 CSV → plain strings/numbers only; banner text rendered by React (no `dangerouslySetInnerHTML` in `src/`); `posterUrl` only in `<img src>`, no CSV-built `href`; `settings.ts` `__proto__` inert.
 
 ### Constants (`src/constants/`) — ✅ Review complete (2026-11-24: simplify, code-review, security-review)
-- `ui.ts` — colors, spacing, `cardShadow` / `cardStyle` (v0.4.11), `responsiveColumns`; single `STATUSES` table → typed `STATUS_COLORS`/`STATUS_TAG_COLORS`; `statusHex`/`statusTagColor`/`genreTagColor` own-key lookups; `sortStatuses`; `tierColor`-based `ratingColor`/`completionColor`
+- `ui.ts` — colors, spacing, `cardShadow` / `cardStyle` (v0.4.11), `responsiveColumns`; single exported `STATUSES` table (literal access, v0.4.13); `statusHex`/`statusTagColor`/`genreTagColor` own-key lookups; `sortStatuses`; `tierColor`-based `ratingColor` (accepts `null`, v0.4.13) / `completionColor`; `STAR_COLOR`
 - `ui.test.ts` (added v0.4.8)
 
 #### Simplify — ✅ done in v0.4.8
@@ -147,7 +148,7 @@ Color helpers never return CSV text; own-key lookups; no unsafe sinks.
 - `filters.ts` — `Filters`, `SortKey`, `NumericSortKey` (added v0.4.9)
 
 #### Simplify — ✅ done in v0.4.9
-`NameValue`/`NameCount`; `Filters`/`SortKey` → `types/filters.ts`; single sort-key source; dropped `as number` cast. Skipped: `episodeRuntime` → `0` (wrong direction), deriving `firstAirYear` from `firstAirDate` (CSV contract), `status: KnownStatus` (layering).
+`NameValue`/`NameCount`; `Filters`/`SortKey` → `types/filters.ts`; single sort-key source; dropped `as number` cast. Skipped: `episodeRuntime` → `0` (wrong direction), deriving `firstAirYear` from `firstAirDate` (CSV contract), `status: KnownStatus` (layering — later done as `KnownStatus | (string & {})` in v0.4.13).
 
 #### Code-review — ✅ all 6 findings fixed in v0.4.9
 Nullable unknowns (year "0", "★ 0.0", "N / 0", N/A tag), Seasons Watched dedupe, number-only `NumericSortKey`, exhaustive sort labels, `Filters.status` sentinel, `NameValue` comment. Details in CHANGELOG `[0.4.9]`.
@@ -156,15 +157,21 @@ Nullable unknowns (year "0", "★ 0.0", "N / 0", N/A tag), Seasons Watched dedup
 Saved `sortBy` validated before use as a key; parser helpers produce only numbers / strings / null; no unsafe sinks.
 
 ### Outside `src/` — ✅ Review complete (2026-11-24: simplify, code-review, security-review)
-- `series-search.py` — Tkinter TMDB CSV generator; writes `public/tv_series.csv`, blank for unknown, follows existing header
+- `series-search.py` — Tkinter TMDB CSV generator; writes `public/tv_series.csv`, blank for unknown, follows existing header. Since v0.4.13: `TmdbClient` / `CsvStore` / `App`, all network calls in workers (polled result queue), API key redacted, atomic CSV rewrite, `utf-8-sig` reads, importable for `scripts/test_series_search.py`
 - `public/tv_series.csv` — data source
 - Config: `tsconfig.node.json` (`outDir` → `node_modules/.tmp`), `vitest.config.ts` (merges vite config, node env default), `eslint.config.js`
 
 #### Simplify — ✅ done in v0.4.10
-`_tmdb_get` helper, session params/headers, `append_to_response` + details cache, `FIELDNAMES`, `load_rows`, config cleanup. Skipped: worker threads for network calls, `App` class, ESLint flat presets, `tsc -b` build.
+`_tmdb_get` helper, session params/headers, `append_to_response` + details cache, `FIELDNAMES`, `load_rows`, config cleanup. Skipped: ESLint flat presets; ~~worker threads, `App` class, `tsc -b` build~~ (done in v0.4.13).
 
 #### Code-review — ✅ all 10 findings fixed in v0.4.10
 Incl. 2 regressions from the simplify step (saved-season checkboxes, ESLint `dist/`). Plus generator output: `public/` path, blank for unknown. Details in CHANGELOG `[0.4.10]`.
 
+#### Simplify — ✅ v0.4.13 (whole uncommitted 0.4.12–0.4.13 diff)
+Injectable `session` / `dialogs` (harness passes fakes, no global monkeypatching), redaction only in `TmdbClient.get`, parallel season fetches, polling only while work is pending, `first_runtime` / `air_year`; `KnownStatus` moved to `types/series.ts`; e2e `csv` fixture option + shared `csv()` header + deterministic broken poster; CI Playwright cache. Skipped: triple CSV read per save (negligible, re-read is deliberate), locked details cache (rare duplicate request), fixed 1s wait in the desktop→mobile e2e test (deliberate).
+
+#### Code-review — ✅ all 6 findings fixed in v0.4.13
+CSV truncation on rewrite (atomic temp + `os.replace`), Excel BOM hiding rows (`utf-8-sig`), season double-count, silent save errors (dialog), Show Detail tile overflow (2×2 below `xl`, `minWidth: 0`), `test:gen` on `python3` systems. Details in CHANGELOG `[0.4.13]`.
+
 #### Security-review — ✅ no findings
-Key never in CSV/logs (may appear in a local error dialog — backlog); fixed path; DictWriter quoting.
+Key never in CSV/logs; ~~may appear in a local error dialog~~ (redacted in v0.4.13); fixed path; DictWriter quoting.

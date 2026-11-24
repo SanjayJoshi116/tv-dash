@@ -113,7 +113,7 @@ Required columns: `TV ID`, `Name`, `Vote Average`, `Genres`, `Status` — a file
 
 ## Generating the CSV
 
-`series-search.py` is a Tkinter desktop app that builds and maintains `tv_series.csv` by querying the [TMDB API](https://www.themoviedb.org/documentation/api). It updates incrementally — re-adding a show with newly watched seasons updates its existing row instead of recreating the whole file.
+`series-search.py` is a Tkinter desktop app that builds and maintains `tv_series.csv` by querying the [TMDB API](https://www.themoviedb.org/documentation/api). It updates incrementally — re-adding a show with newly watched seasons updates its existing row instead of recreating the whole file. Network calls run in background threads, so the window stays responsive, and the API key is stripped from any error message. Writes are safe: a rewrite goes through a temp file (never a half-written CSV), a file re-saved by Excel (UTF-8 BOM) still works, and any save error is shown in a dialog.
 
 **Requirements:**
 
@@ -157,7 +157,7 @@ python series-search.py
 
 ## Testing
 
-[Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com). Tests run in a node environment by default; DOM tests opt into jsdom with a `// @vitest-environment jsdom` first line (see `useTvData.test.ts`). Four suites, 77 tests:
+[Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com). Tests run in a node environment by default; DOM tests opt into jsdom with a `// @vitest-environment jsdom` first line (see `useTvData.test.ts`). Four suites, 80 tests:
 
 - `src/hooks/useTvData.test.ts` — fetch lifecycle (loading/success/error/retry, superseded response, timeout)
 - `src/utils/parseSeriesCsv.test.ts` — CSV parsing rules (row mapping, skipped rows, fatal errors, numeric fallbacks); shared CSV fixtures in `parseSeriesCsv.fixture.ts`
@@ -167,6 +167,19 @@ python series-search.py
 ```bash
 npm run test        # run once
 npm run test:watch  # watch mode
+```
+
+**Browser e2e** — [Playwright](https://playwright.dev) suite in `e2e/` (dashboard, show detail, shows page, mobile bottom nav). It serves its own synthetic CSV (skipped rows, blank / `N/A` / fractional / huge values, broken posters) via route interception, so it never depends on your data; a separate smoke test checks the real `public/tv_series.csv` when present.
+
+```bash
+npx playwright install chromium   # once per machine
+npm run e2e                       # starts the dev server on :5199 automatically
+```
+
+**CSV generator** — `scripts/test_series_search.py` imports `series-search.py` and drives its real Tk window with TMDB faked and a temp CSV (your CSV and API key are never used) — including checks that the window stays responsive while a request is slow. Needs a display, so it's local-only. `npm run test:gen` finds `python` / `py` / `python3` itself (`scripts/run-python.mjs`).
+
+```bash
+npm run test:gen
 ```
 
 ## Performance
@@ -179,7 +192,7 @@ npm run test:watch  # watch mode
 
 ## CI
 
-[GitHub Actions](.github/workflows/ci.yml) runs on every push/PR to `main`: `npm run lint`, `npm run test`, `npm run build` (type-check + production bundle).
+[GitHub Actions](.github/workflows/ci.yml) runs on every push/PR to `main`: `npm run lint`, `npm run test`, `npm run build` (type-check + production bundle), and a separate `e2e` job (`npm run e2e` on Chromium; HTML report uploaded as an artifact on failure).
 
 ## Project Structure
 
@@ -205,6 +218,7 @@ src/
 │   └── settings.ts            # localStorage persistence utility
 ├── components/
 │   ├── AppLayout.tsx          # Sider + Header + Content shell
+│   ├── BottomNav.tsx          # Mobile bottom nav (hides on scroll-down)
 │   ├── ChartsSection.tsx      # 14 Recharts charts in 4 tabs
 │   ├── CsvWarningBanner.tsx   # Dismissible banner for skipped CSV rows
 │   ├── ErrorState.tsx         # Shared error alert with retry
@@ -232,7 +246,9 @@ src/
 | `npm run dev` | Start dev server |
 | `npm run build` | Type-check + production build |
 | `npm run preview` | Preview production build |
-| `npm run test` | Run tests |
+| `npm run test` | Run unit tests (Vitest) |
+| `npm run e2e` | Run browser e2e tests (Playwright) |
+| `npm run test:gen` | Check `series-search.py` (Tk, local only) |
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier |
 

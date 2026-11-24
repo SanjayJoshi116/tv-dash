@@ -9,6 +9,8 @@ interface Props {
 export function ThemeToggle({ value, onChange }: Props) {
   return (
     <Select
+      id="theme-select"
+      aria-label="Theme"
       value={value}
       onChange={onChange}
       options={THEME_NAMES.map(n => ({ label: n, value: n }))}

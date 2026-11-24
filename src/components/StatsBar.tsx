@@ -14,6 +14,7 @@ import type { TvSeries } from '../types/series'
 import {
   avgRating,
   completionRate,
+  formatRating,
   networkDistribution,
   topGenreByWatchTime,
   totalEpisodesWatched,
@@ -28,12 +29,6 @@ import { useTheme } from '../ThemeContext'
 
 interface Props {
   data: TvSeries[]
-}
-
-// Hover text matching what the card renders (precision + suffix), not the raw float
-function formatTitle({ value, precision, suffix }: { value: number | string; precision?: number; suffix?: string }): string {
-  const v = typeof value === 'number' && precision != null ? value.toFixed(precision) : String(value)
-  return suffix ? `${v} ${suffix}` : v
 }
 
 export const StatsBar = memo(function StatsBar({ data }: Props) {
@@ -62,7 +57,7 @@ export const StatsBar = memo(function StatsBar({ data }: Props) {
 
   const cards = [
     { key: 'shows-watched', title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: chartColors[0] },
-    { key: 'avg-rating', title: 'Avg Rating', value: stats.rating?.toFixed(1) ?? '–', prefix: <StarOutlined />, suffix: '/ 10', color: stats.rating == null ? theme.chartText : ratingColor(stats.rating) },
+    { key: 'avg-rating', title: 'Avg Rating', value: formatRating(stats.rating), prefix: <StarOutlined />, suffix: '/ 10', color: ratingColor(stats.rating) ?? theme.chartText },
     { key: 'unique-genres', title: 'Unique Genres', value: stats.genres, prefix: <TagsOutlined />, color: chartColors[1] },
     { key: 'completion-rate', title: 'Completion Rate', value: stats.completion, prefix: <TrophyOutlined />, suffix: '%', color: completionColor(stats.completion) },
     { key: 'episodes-watched', title: 'Episodes Watched', value: stats.totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: chartColors[2] },
@@ -81,18 +76,17 @@ export const StatsBar = memo(function StatsBar({ data }: Props) {
       marginBottom: SECTION_GAP,
     }}>
       {cards.map(card => (
-        <div key={card.key} title={formatTitle(card)}>
-          <StatCard
-            title={card.title}
-            value={card.value}
-            suffix={card.suffix}
-            precision={card.precision}
-            prefix={card.prefix}
-            color={card.color}
-            shadow={shadow}
-            compact
-          />
-        </div>
+        <StatCard
+          key={card.key}
+          title={card.title}
+          value={card.value}
+          suffix={card.suffix}
+          precision={card.precision}
+          prefix={card.prefix}
+          color={card.color}
+          shadow={shadow}
+          compact
+        />
       ))}
     </div>
   )

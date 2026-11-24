@@ -1,5 +1,6 @@
 import type { Grid } from 'antd'
 import type { SortKey } from '../types/filters'
+import { KNOWN_STATUSES, type KnownStatus } from '../types/series'
 import { lookup } from '../utils/lookup'
 
 type Screens = ReturnType<typeof Grid.useBreakpoint>
@@ -55,8 +56,14 @@ export const SECTION_GAP = 24
 const tierColor = (high: number, mid: number) => (v: number): string =>
   v >= high ? '#52c41a' : v >= mid ? '#faad14' : '#f5222d'
 
-export const ratingColor = tierColor(8, 6)
+const ratingTier = tierColor(8, 6)
+// Unknown rating (null) -> undefined: callers pick the fallback (`?? theme.chartText`, or inherit)
+export const ratingColor = (v: number | null): string | undefined => (v == null ? undefined : ratingTier(v))
 export const completionColor = tierColor(75, 40)
+
+// Star icon next to a rating in compact lists (Dashboard Recently Watched / Not Started) —
+// deliberately a fixed gold, not ratingColor (the number carries the tier color elsewhere)
+export const STAR_COLOR = '#faad14'
 
 export function cardShadow(isDark: boolean): string {
   return isDark ? '0 6px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(30,30,63,0.08)'
@@ -67,40 +74,36 @@ export function cardStyle(isDark: boolean): { borderRadius: number; boxShadow: s
   return { borderRadius: 10, boxShadow: cardShadow(isDark) }
 }
 
-// Single source for every known TMDB status: hex (Progress strokeColor, Status donut/bars) +
+// Colors for every KNOWN_STATUSES entry (types/series.ts) — a missing one fails to compile: hex (Progress strokeColor, Status donut/bars) +
 // antd Tag color. Each hex is its tag preset's -6 shade (Ended: neutral grey for 'default'),
 // so a status looks the same as a bar and as a Tag.
-const STATUSES = {
+// Literal-key access only (`STATUSES['Returning Series'].hex`) — a typo fails to compile.
+// For a status read from the CSV, use statusHex / statusTagColor (own-key lookup).
+type StatusStyle = { hex: string; tag: string }
+
+export const STATUSES = {
   'Returning Series': { hex: '#52c41a', tag: 'green' },
   'Ended': { hex: '#8c8c8c', tag: 'default' },
   'Canceled': { hex: '#f5222d', tag: 'red' },
   'In Production': { hex: '#1677ff', tag: 'blue' },
   'Planned': { hex: '#722ed1', tag: 'purple' },
   'Pilot': { hex: '#fa8c16', tag: 'orange' },
-} as const satisfies Record<string, { hex: string; tag: string }>
-
-export type KnownStatus = keyof typeof STATUSES
-const STATUS_NAMES = Object.keys(STATUSES) as KnownStatus[]
-
-// Literal-key access only (`STATUS_COLORS['Returning Series']`) — a typo fails to compile.
-// For a status read from the CSV, use statusHex / statusTagColor.
-export const STATUS_COLORS = Object.fromEntries(STATUS_NAMES.map(s => [s, STATUSES[s].hex])) as Record<KnownStatus, string>
-export const STATUS_TAG_COLORS = Object.fromEntries(STATUS_NAMES.map(s => [s, STATUSES[s].tag])) as Record<KnownStatus, string>
+} as const satisfies Record<KnownStatus, StatusStyle>
 
 // Unknown statuses get the caller's fallback (a theme chart color) — same rule on every page
 export function statusHex(status: string, fallback: string): string {
-  return lookup<string>(STATUS_COLORS, status) ?? fallback
+  return lookup<StatusStyle>(STATUSES, status)?.hex ?? fallback
 }
 
 export function statusTagColor(status: string): string {
-  return lookup<string>(STATUS_TAG_COLORS, status) ?? 'default'
+  return lookup<StatusStyle>(STATUSES, status)?.tag ?? 'default'
 }
 
 // Known statuses in STATUSES order, then unknown ones alphabetically (deduped)
 export function sortStatuses(statuses: Iterable<string>): string[] {
   const rank = (s: string) => {
-    const i = STATUS_NAMES.indexOf(s as KnownStatus)
-    return i === -1 ? STATUS_NAMES.length : i
+    const i = (KNOWN_STATUSES as readonly string[]).indexOf(s)
+    return i === -1 ? KNOWN_STATUSES.length : i
   }
   return [...new Set(statuses)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
 }

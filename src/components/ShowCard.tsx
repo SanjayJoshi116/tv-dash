@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Card, Tag, Typography } from 'antd'
 import { StarFilled } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
-import { genreTagColor, ratingColor, STATUS_COLORS } from '../constants/ui'
+import { genreTagColor, ratingColor, STATUSES } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
 import { activateOnKey } from '../utils/a11y'
+import { formatRating } from '../utils/derive'
 import { PosterThumb } from './PosterThumb'
 
 const { Text, Title } = Typography
@@ -17,7 +18,7 @@ interface Props {
 export const ShowCard = memo(function ShowCard({ series }: Props) {
   const navigate = useNavigate()
   const theme = useTheme()
-  const color = series.voteAverage == null ? undefined : ratingColor(series.voteAverage)
+  const color = ratingColor(series.voteAverage)
 
   const handleSelect = () => navigate(`/shows/${series.tvId}`)
 
@@ -46,14 +47,14 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
             <Badge
               count={
                 <span style={{ background: color, color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 12, fontWeight: 700 }}>
-                  <StarFilled style={{ marginRight: 3 }} />{series.voteAverage.toFixed(1)}
+                  <StarFilled style={{ marginRight: 3 }} />{formatRating(series.voteAverage)}
                 </span>
               }
               style={{ position: 'absolute', top: 8, right: 8 }}
             />
           )}
           {series.status === 'Returning Series' && (
-            <span style={{ position: 'absolute', top: 8, left: 8, background: STATUS_COLORS['Returning Series'], color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
+            <span style={{ position: 'absolute', top: 8, left: 8, background: STATUSES['Returning Series'].hex, color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 11 }}>
               Ongoing
             </span>
           )}
