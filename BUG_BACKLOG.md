@@ -2,7 +2,17 @@
 
 ## Open
 
-_None._
+Found during the 0.4.14 ideas pass (not fixed yet — each has a matching `IDEAS.md` entry).
+
+- [ ] `ShowDetailPage` / `completionRate` — completion above 100% when `Episodes Watched` > `Total Episodes` (TMDB count changed after saving). **Confirmed in the real CSV:** Farming Life in Another World 24 / 13 → "185%", Spartacus: Gods of the Arena 6 / 1 → "600%". Decide the rule once (IDEAS → Utils `progressState`, soft data-quality warnings) and clamp the display
+- [ ] `StatCard` — tint built as `${color}40` / `${color}22` breaks on non-6-digit colors. **Real path:** Avg Rating falls back to `theme.chartText` (`#ccc` in Default Dark) when no show is rated → `#ccc40` is invalid, border/badge background dropped (IDEAS → Components "Robust tint colors")
+- [ ] `constants/ui.ts` `GENRE_COLORS` — Crime (26 shows) and Documentary / Family / Kids / War & Politics / Reality render as grey `default`; 6 entries are TMDB movie genres that never occur (IDEAS → Constants P1)
+- [ ] `series-search.py` `CsvStore.update` — updating an existing show rewrites the row in place, so a re-watched show never reaches "Recently Watched" / `recentFirst` (row order is the watch history) (IDEAS → Outside `src/` P1)
+- [ ] `ChartsSection` / Dashboard Ratings chart — Recharts tooltips use the default white box + grey cursor in Default Dark / Dracula (no `contentStyle`) (IDEAS → Components P1)
+- [ ] `utils/a11y.ts` `activateOnKey` — holding Enter on a focused card fires `navigate` repeatedly (no `e.repeat` check) (IDEAS → Utils P2)
+- [ ] `useTvData` — `HTTP 404: ` with a trailing colon when `statusText` is empty (HTTP/2); timeout message blames a missing file, which actually fails fast (IDEAS → Hooks P2)
+- [ ] `useTvData` — **verify:** on SPA hosts (and possibly Vite dev) a missing `/tv_series.csv` returns `200` + `index.html`, reported as a confusing "missing columns" error (IDEAS → Hooks P1)
+- [ ] CI — `node-version: 20` is past end-of-life (April 2026); the CLAUDE.md lock-file rule assumes it (IDEAS → Outside `src/` P1)
 
 ## Fixed in 0.4.13 (2026-11-24)
 

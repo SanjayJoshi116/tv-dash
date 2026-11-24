@@ -228,7 +228,7 @@ src/
 │   ├── RouteErrorBoundary.tsx # Catches page render / chunk-load errors
 │   ├── ShowCard.tsx           # Individual show card
 │   ├── ShowGrid.tsx           # Responsive CSS-grid of ShowCards
-│   ├── StatCard.tsx           # Shared stat tile (Dashboard + StatsBar)
+│   ├── StatCard.tsx           # Shared stat tile (Dashboard, StatsBar, Show Detail)
 │   ├── StatsBar.tsx           # Row of stat cards
 │   └── ThemeToggle.tsx        # Theme selector
 └── pages/
@@ -254,11 +254,13 @@ src/
 
 ## Future Improvements
 
-Ideas, not commitments:
+Ideas, not commitments — the full ranked list (P1 / P2 / P3 per module) is in [IDEAS.md](IDEAS.md), known bugs in [BUG_BACKLOG.md](BUG_BACKLOG.md). Highlights:
 
-- Watch-history timestamps (currently row-order is the only signal for "recently watched")
-- Import/export for `tv_series.csv`
-- Optional cloud sync / multi-device support
+- Shows filters + page in the URL (Back from a show keeps your place; shareable filtered views; clickable tags / chart drill-down)
+- Watch-history timestamps (a `Last Watched` column — row order is currently the only signal for "recently watched")
+- Personal layer on top of the CSV: favorites, your own rating, notes
+- Generator: "Refresh all" for stale TMDB metadata, and re-watched shows moved to the end of the CSV
+- Load your own CSV in the browser (local only) and CSV export
 
 ## License
 

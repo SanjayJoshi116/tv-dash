@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.14] — 2026-11-24
+
+Docs only — no app or generator code changed.
+
+### Improvement ideas (`IDEAS.md`)
+
+- **New "Improvement Ideas" for every module** (Entry / root, Pages, Components, Context, Hooks, Utils, Constants, Types, Outside `src/`), ranked P1 (high value, low cost) / P2 / P3, each grounded in the current code and the real CSV (e.g. genre counts, rating tiers)
+- **Restructured:** ideas first, then `## Completed` (the finished Next Up list + module review tracker, unchanged, headings demoted one level). The one open checkbox (sidebar collapse across desktop ↔ mobile resize) moved to a new `## Open follow-ups`
+- **Deduplicated:** 13 cross-module duplicates merged so each idea lives once, in the module that owns it (e.g. perf marks → Hooks "Load timing", `useHotkeys` → Entry / root shortcuts, similarity / insights / export → Pages, `KNOWN_GENRES` → Constants genre fix); 202 → 189 ideas
+
+### Bug backlog (`BUG_BACKLOG.md`)
+
+- 9 open items found while exploring, each cross-referenced to its IDEAS entry — 2 confirmed against the real CSV (completion above 100% on Show Detail, Crime shows with grey genre tags), 1 against the themes (`StatCard` tint on a 3-digit hex), 1 to verify (missing CSV served as `index.html`)
+
+### Docs
+
+- `CLAUDE.md`: new "Project docs" section (what `IDEAS.md` / `BUG_BACKLOG.md` / `CHANGELOG.md` / `features.txt` hold and how to keep them in sync on a release)
+- `README.md`: "Future Improvements" points to `IDEAS.md`; `StatCard` structure comment includes Show Detail
+- `features.txt`: version header
+
 ## [0.4.13] — 2026-11-24
 
 Clears the IDEAS "Next Up" backlog (items 5–7) and both open BUG_BACKLOG entries.

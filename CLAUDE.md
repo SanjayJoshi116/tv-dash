@@ -111,6 +111,13 @@ Use `npm run build` (`tsc -b && vite build`) for type checks. `tsc -b` checks `s
 
 If `package.json`'s `version` (or any dependency) is bumped by hand, run `npm install` immediately after so `package-lock.json` resyncs — a stale lock passes `npm install` silently but fails `npm ci` in CI. This bit us once: `vitest`'s nested `vite@8` needs a separate `esbuild ^0.27||^0.28` tree from the top-level `vite@5`'s `esbuild ~0.21`, and a stale lock had them wrongly deduped. **Regenerate the lock with CI's npm (Node 20 → npm 10): `npx -y npm@10 install`.** That nested esbuild is an *optional peer* of `vite@8`; newer local npm (12) leaves `node_modules/vitest/node_modules/esbuild` out of the lock, and npm 10's `npm ci` then fails with `Missing: esbuild@0.28.x from lock file` (happened again in 0.4.11). Check: `grep vitest/node_modules/esbuild package-lock.json`.
 
+## Project Docs
+
+- `IDEAS.md` — top: `## Open follow-ups`, then `## Improvement Ideas` (one `###` section per module, `#### P1` / `P2` / `P3`: high value + low cost / worth doing / experimental). **Each idea lives once**, in the module that owns it; related modules point to it instead of repeating it. Bottom (after `---`): `## Completed` — finished Next Up list + per-module review tracker, kept for history. When an idea ships, move it into `## Completed` (or strike it through) rather than deleting it.
+- `BUG_BACKLOG.md` — `## Open` (unchecked, each bug-like idea cross-referenced to its `IDEAS.md` entry) then `## Fixed in <version>` blocks, newest first.
+- `CHANGELOG.md` — one `## [x.y.z] — date` block per version, newest first. `features.txt` — user-facing feature list with a `Version x.y.z` header.
+- **On a version bump:** `package.json` `version` → `npx -y npm@10 install` (see Lock File) → `CHANGELOG.md` → `features.txt` header → move fixed items in `BUG_BACKLOG.md` → `IDEAS.md` "Last updated" line → README if user-facing.
+
 ## Commands
 
 ```bash
