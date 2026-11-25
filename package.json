@@ -1,11 +1,12 @@
 {
   "name": "tv-dash",
   "private": true,
-  "version": "0.4.23",
+  "version": "0.4.30",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:pages": "tsc -b && vite build --base=/tv-dash/ && node scripts/copy-404.mjs",
     "preview": "vite preview",
     "lint": "eslint src",
     "format": "prettier --write src",
@@ -13,6 +14,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:pwa": "playwright test -c playwright.pwa.config.ts",
+    "e2e:subpath": "playwright test -c playwright.subpath.config.ts",
     "test:gen": "node scripts/run-python.mjs scripts/test_series_search.py"
   },
   "dependencies": {

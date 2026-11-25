@@ -10,10 +10,29 @@ Found during the 0.4.14 ideas pass and the Entry / root OpenSpec proposals (not 
 - [ ] `series-search.py` `CsvStore.update` — updating an existing show rewrites the row in place, so a re-watched show never reaches "Recently Watched" / `recentFirst` (row order is the watch history) (IDEAS → Outside `src/` P1)
 - [ ] `ChartsSection` / Dashboard Ratings chart — Recharts tooltips use the default white box + grey cursor in Default Dark / Dracula (no `contentStyle`) (IDEAS → Components P1)
 - [ ] `utils/a11y.ts` `activateOnKey` — holding Enter on a focused card fires `navigate` repeatedly (no `e.repeat` check) (IDEAS → Utils P2)
+- [ ] `ShortcutsHelp` — Escape pressed within ~300ms of opening the `?` cheat sheet doesn't close it: antd moves focus into the Modal only after its open animation, and Escape is handled there (immediate under reduced motion). Fix: `Modal` `autoFocus` / focus the dialog on open, or close on Escape from `GlobalShortcuts` while open. Found 2026-11-25 writing `e2e/shortcuts.spec.ts` (which waits for focus to move in)
 - [ ] `useTvData` — `HTTP 404: ` with a trailing colon when `statusText` is empty (HTTP/2); timeout message blames a missing file, which actually fails fast (IDEAS → Hooks P2)
 - [ ] `useTvData` — **verify:** on SPA hosts (and possibly Vite dev) a missing `/tv_series.csv` returns `200` + `index.html`, reported as a confusing "missing columns" error (IDEAS → Hooks P1)
 - [ ] CI — `node-version: 20` is past end-of-life (April 2026); the CLAUDE.md lock-file rule assumes it (IDEAS → Outside `src/` P1)
 - [ ] Build copies everything in `public/` into `dist/` — including the personal `tv_series.csv.bak` (and `tv_series.csv` itself), so deploying `dist/` as-is publishes them. Not in the service-worker precache, but downloadable. Exclude backups from the copy (or move them out of `public/`), and decide how the real CSV gets deployed. Found 2026-11-25 while checking the PWA build output
+
+## Fixed in 0.4.30 (2026-11-25)
+
+Code review of 0.4.24–0.4.29:
+
+- [x] Custom theme — a pale / white accent on Light (or black on Dark) was used raw as `colorPrimary`: progress bars, highlights, the nav progress bar, area / rating charts and the active bottom-nav item became invisible. `colorPrimary` is now the readable chart color 0
+- [x] Primary-button text — antd always uses white (`colorTextLightSolid`); on High Contrast's yellow that was ~1.9:1, and Dracula / Nord / Solarized Light / pale Custom accents also failed 4.5:1. Now white or black by contrast with the primary antd actually renders (`antdThemeConfig`), checked by the theme contract
+- [x] Cross-tab sync — another tab's unrelated save within 300ms of a Custom accent change reverted this tab's picker / theme, then the pending save wrote the new accent anyway (tabs disagreeing)
+- [x] Router — `createBrowserRouter` in a `useState` initializer: StrictMode made a second router that stayed subscribed to `popstate` and was never disposed (also one per `App` mount in tests)
+- [x] `/` shortcut — pressed on Shows while its data / code was loading did nothing; a request for a Shows visit that never happened (replaced or failed navigation) focused the search on a later, unrelated visit
+- [x] Relative build base (`--base=./`) — router basename `.` and a CSV URL that followed the current route
+- [x] Header — Custom's picker + base switch + select overflowed the header on 320–360px phones (now a "Customize" popover below `md`)
+- [x] Accent presets — `#6366f1` listed twice
+
+## Fixed in 0.4.24 (2026-11-25)
+
+- [x] Navigation — moving to a page whose code wasn't loaded yet swapped the current page for a full-content spinner (`Suspense` fallback); the current page now stays with a progress bar (`NavProgress`, data router)
+- [x] Data router migration — React Router's error boundary only renders the `errorElement` for `error !== undefined`, so a page doing `throw undefined` escaped to the full-app recovery screen. Found by the spike's e2e before release; `UndefinedThrowGuard` keeps it in the layout
 
 ## Fixed in 0.4.23 (2026-11-25)
 

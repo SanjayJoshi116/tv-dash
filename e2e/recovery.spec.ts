@@ -1,22 +1,11 @@
 import type { Page } from '@playwright/test'
-import { test, expect, themeSelect } from './fixtures'
+import { test, expect, allowProvokedErrors, crashModule, themeSelect } from './fixtures'
 import { SETTINGS_KEY, SIDEBAR_KEY } from '../src/utils/settings'
 
-// Crashes are forced by serving a throwing module in place of a source file (Vite dev serves
-// /src/... as ES modules) — no test hooks in app code. The trailing * covers ?t= / ?v= queries.
-async function crashModule(page: Page, file: string, exportName: string, message: string) {
-  await page.route(`**/src/${file}*`, r =>
-    r.fulfill({
-      status: 200,
-      contentType: 'application/javascript',
-      body: `export function ${exportName}() { throw new Error(${JSON.stringify(message)}) }`,
-    }),
-  )
-}
 
 const SETTINGS = JSON.stringify({ themeName: 'Dracula', filters: { search: 'frac' } })
 
-async function seedSettings(page: Page) {
+async function seedSettingsAndSidebar(page: Page) {
   await page.goto('/')
   await page.evaluate(([keys, s]) => {
     localStorage.setItem(keys[0], s)
@@ -28,12 +17,12 @@ const stored = (page: Page) =>
   page.evaluate(keys => keys.map(k => localStorage.getItem(k)), [SETTINGS_KEY, SIDEBAR_KEY])
 
 test.describe('shell crash → recovery screen', () => {
-  // React's own report of the caught error + RootErrorBoundary's console.error
-  test.use({ allowConsoleErrors: /boom: shell crash|AppLayout|App shell render failed/ })
+  // + RootErrorBoundary's own console.error
+  test.use({ allowConsoleErrors: allowProvokedErrors('boom: shell crash|App shell render failed') })
 
   test.beforeEach(async ({ page }) => {
-    await seedSettings(page)
-    await crashModule(page, 'components/AppLayout.tsx', 'AppLayout', 'boom: shell crash')
+    await seedSettingsAndSidebar(page)
+    await crashModule(page, 'components/AppLayout.tsx', 'AppLayout', 'throw new Error("boom: shell crash")')
     await page.reload()
   })
 
@@ -60,7 +49,7 @@ test.describe('shell crash → recovery screen', () => {
 })
 
 test('?reset clears saved settings before the app starts and drops only that param', async ({ page }) => {
-  await seedSettings(page)
+  await seedSettingsAndSidebar(page)
   await page.goto('/shows?reset&foo=1')
   await expect(page).toHaveURL(/\/shows\?foo=1$/)
   await expect(page.locator('#shows-search')).toHaveValue('')
@@ -71,10 +60,10 @@ test('?reset clears saved settings before the app starts and drops only that par
 })
 
 test.describe('page crash', () => {
-  test.use({ allowConsoleErrors: /boom: page crash|ShowsPage|Route render failed/ })
+  test.use({ allowConsoleErrors: allowProvokedErrors('boom: page crash') })
 
-  test('stays in the layout (RouteErrorBoundary), not the recovery screen', async ({ page }) => {
-    await crashModule(page, 'pages/ShowsPage.tsx', 'ShowsPage', 'boom: page crash')
+  test('stays in the layout (PageError), not the recovery screen', async ({ page }) => {
+    await crashModule(page, 'pages/ShowsPage.tsx', 'ShowsPage', 'throw new Error("boom: page crash")')
     await page.goto('/shows')
     await expect(page.locator('.ant-alert-error')).toContainText('boom: page crash')
     await expect(page.locator('.ant-layout-header')).toBeVisible()

@@ -73,6 +73,10 @@ jobs:
       - name: E2E tests (PWA)
         run: npm run e2e:pwa
 
+      # Sub-path deploy (vite build --base=/sub/ + preview)
+      - name: E2E tests (sub-path)
+        run: npm run e2e:subpath
+
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v4

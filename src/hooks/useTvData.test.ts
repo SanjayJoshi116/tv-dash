@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useTvData } from './useTvData'
 import { VALID_CSV, VALID_ROW, csv, withId } from '../utils/parseSeriesCsv.fixture'
+import { CSV_URL } from '../constants/paths'
 
 // Parsing rules live in parseSeriesCsv.test.ts — these cover the fetch lifecycle only.
 
@@ -45,10 +46,13 @@ describe('useTvData', () => {
   })
 
   it('parses CSV and sets data on success', async () => {
-    stubFetch(fakeResponse(VALID_CSV))
+    const fetchFn = stubFetch(fakeResponse(VALID_CSV))
     const result = await renderLoaded()
     expect(result.current.error).toBeNull()
     expect(result.current.data.map(s => s.name)).toEqual(['Breaking Bad'])
+    // CSV_URL under Vite's base — '/' in tests, as in a root deploy
+    expect(fetchFn).toHaveBeenCalledWith(CSV_URL, expect.anything())
+    expect(CSV_URL).toBe('/tv_series.csv')
   })
 
   it('sets error on HTTP failure', async () => {

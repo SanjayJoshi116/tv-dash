@@ -1,6 +1,6 @@
-import { lazy, type ComponentType } from 'react'
+import type { ComponentType } from 'react'
 
-// One place for page code loading: the lazy route components (App), intent prefetch (nav items,
+// One place for page code loading: the route `lazy` functions (App), intent prefetch (nav items,
 // show cards) and the idle prefetch policy.
 
 export type PageKey = 'dashboard' | 'shows' | 'statistics' | 'showDetail'
@@ -14,15 +14,15 @@ export const PAGE_LOADERS: Record<PageKey, () => Promise<PageModule>> = {
   showDetail: () => import('../pages/ShowDetailPage').then(m => ({ default: m.ShowDetailPage })),
 }
 
-// lazy() calls the raw loader; the browser's module map dedupes it with an in-flight prefetch
-export const DashboardPage = lazy(PAGE_LOADERS.dashboard)
-export const ShowsPage = lazy(PAGE_LOADERS.shows)
-export const StatisticsPage = lazy(PAGE_LOADERS.statistics)
-export const ShowDetailPage = lazy(PAGE_LOADERS.showDetail)
+// Data-router route `lazy`: calls the raw loader (the browser's module map dedupes it with an
+// in-flight prefetch) and hands the page over as the route's Component
+export function lazyPage(key: PageKey): () => Promise<{ Component: ComponentType }> {
+  return () => PAGE_LOADERS[key]().then(m => ({ Component: m.default }))
+}
 
 // A prefetcher with its own cache: each page's code starts loading at most once (cheap to call on
 // every hover). Never rejects: a failure clears the entry so a later trigger retries, and real
-// navigation surfaces the error through RouteErrorBoundary.
+// navigation surfaces the error through the route's error element (PageError).
 export function createPrefetcher(loaders: Record<PageKey, () => Promise<unknown>>): (key: PageKey) => void {
   const started = new Map<PageKey, Promise<unknown>>()
   return key => {

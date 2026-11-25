@@ -2,7 +2,7 @@
 
 Improvement ideas per module (top), then the finished review tracker (bottom). Bugs live in [BUG_BACKLOG.md](BUG_BACKLOG.md) — the 9 bug-like findings from the ideas pass are listed there too, each pointing back to its idea here.
 
-_Last updated 2026-11-25 (v0.4.23 — installable PWA / offline (network-first CSV, update prompt, theme-color), then a simplify + code-review pass over 0.4.20–0.4.23; v0.4.22 — smarter route prefetch (Data Saver / 2G aware, hover/focus intent); v0.4.21 — cross-tab theme sync; v0.4.20 — semantic theme colors (per-theme rating/completion tiers, readable badges); v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 210 unit, 56 + 4 PWA e2e (Playwright, CI — `npm run e2e` / `npm run e2e:pwa`), 37 generator checks (`npm run test:gen`, local).
+_Last updated 2026-11-25 (v0.4.30 — code-review fixes: readable Custom primary + primary-button text in every theme, cross-tab Custom race, router dispose, `/` request edge cases, relative base, narrow-phone Customize popover; v0.4.29 — sub-path hosting (`--base`, router basename, base-relative CSV / PWA URLs, `build:pages`); v0.4.28 — `?theme=` URL override (one visit, never saved; boot script honors it); v0.4.27 — four more built-in themes: High Contrast, OLED Black, Nord, Solarized Light; v0.4.26 — Custom accent theme (picked accent on a dark / light base, derived readable chart palette, `utils/color.ts`); v0.4.25 — global keyboard shortcuts (`useHotkeys`, `?` cheat sheet); v0.4.24 — data router (route `lazy` + error elements, navigation progress bar; spike passed); v0.4.23 — installable PWA / offline (network-first CSV, update prompt, theme-color), then a simplify + code-review pass over 0.4.20–0.4.23; v0.4.22 — smarter route prefetch (Data Saver / 2G aware, hover/focus intent); v0.4.21 — cross-tab theme sync; v0.4.20 — semantic theme colors (per-theme rating/completion tiers, readable badges); v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 562 unit, 91 + 4 PWA + 6 sub-path e2e (Playwright, CI — `npm run e2e` / `npm run e2e:pwa`), 37 generator checks (`npm run test:gen`, local).
 
 ## Open follow-ups
 
@@ -18,16 +18,9 @@ Scope: `main.tsx`, `App.tsx`, `ThemeContext.tsx`, `themes.ts`, `setupTests.ts`.
 #### P1
 
 #### P2
-- **Data router (`createBrowserRouter`)** — on react-router v7: route-level `lazy`, `errorElement` (could replace parts of `RouteErrorBoundary`'s manual pathname reset), `useNavigation()` for a top progress bar while a chunk loads. Spike first — `Content` (not window) is the scroll container, so built-in `ScrollRestoration` won't help directly.
-
-- **Single route table** — `App`'s `<Route>`s, `NAV_ITEMS` (`key` + `page`) and `PAGE_LOADERS` are three hand-synced lists since v0.4.22. One table in `routes/` (`{ path, page, nav?: { label, icon } }`) that `App` maps to routes and `AppLayout` filters for nav would remove the `page` field / `MENU_ITEMS` stripping. Also a candidate: a `showLinkProps(id)` helper for the three clickable show elements (click / key / prefetch / role). From the v0.4.23 simplify pass.
+- **Single route table** — `App`'s `ROUTES`, `NAV_ITEMS` (`key` + `page`) and `PAGE_LOADERS` are three hand-synced lists since v0.4.22. One table in `routes/` (`{ path, page, nav?: { label, icon } }`) that `App` maps to routes and `AppLayout` filters for nav would remove the `page` field / `MENU_ITEMS` stripping. Also a candidate: a `showLinkProps(id)` helper for the three clickable show elements (click / key / prefetch / role). From the v0.4.23 simplify pass.
 
 #### P3
-- **Global keyboard shortcuts** — `g d` / `g s` / `g t` navigate, `/` focuses Shows search, `t` cycles theme, `?` shows a cheat-sheet modal. One reusable `useHotkeys(map)` hook (ignored while typing in inputs), also used by the quick switcher and grid navigation (Components).
-- **Custom accent theme** — "Custom" theme where the user picks one accent color; derive `chartColors` (hue rotation), `tiers`, `colorPrimary` and persist via `saveSetting`. Low code thanks to antd's algorithms.
-- **More built-in themes** — high-contrast (a11y), Solarized, Nord, OLED black. Cheap once the theme contract test exists.
-- **URL theme override** — `?theme=Dracula` (not persisted) for screenshots / README images and e2e theme coverage.
-- **Base path from `import.meta.env.BASE_URL`** — `BrowserRouter basename` + CSV fetch via `new URL('tv_series.csv', import.meta.env.BASE_URL)` (path in one exported constant shared with e2e route interception) so the build can be hosted under a sub-path (GitHub Pages) without code edits; add a 404.html SPA fallback note.
 - ~~**`setupTests.ts` cleanup** — it loads `@testing-library/jest-dom` for every test while the default environment is `node`; move it to the jsdom tests only (or drop it if no matcher uses it).~~ ✅ Unreleased (`tidy-root-entry`): file + dependency dropped; jsdom tests import `@testing-library/jest-dom/vitest` themselves.
 - ~~**Clear mount error** — replace `document.getElementById('root')!` with an explicit check that throws `"#root element missing in index.html"`.~~ ✅ Unreleased (`tidy-root-entry`).
 
@@ -63,7 +56,7 @@ Scope: `DashboardPage.tsx`, `ShowsPage.tsx`, `ShowDetailPage.tsx`, `StatisticsPa
 - **Layout-matching skeletons** — antd `Skeleton` shaped like each page instead of the centered spinner, so the first paint doesn't jump.
 - **Smarter 404** — `NotFoundPage` / Show-not-found offer a search box and, for `/shows/<text>` that isn't a number, "Did you mean…" matches by name (navigate to the result, never echo the path as HTML).
 - **Poster-tinted hero** — derive an accent from the poster's dominant color for the Show Detail hero background/border. Spike first: needs CORS-enabled images for canvas reads (TMDB image CDN may or may not allow it) and must still pass theme contrast.
-- **Grid keyboard navigation** — arrow keys move focus between `ShowCard`s on Shows (roving `tabIndex`), Enter opens (`/` to search is under Entry / root shortcuts).
+- **Grid keyboard navigation** — arrow keys move focus between `ShowCard`s on Shows (roving `tabIndex`), Enter opens (`/` to search shipped in v0.4.25; arrow keys belong in the grid's own `onKeyDown`, not the global `useHotkeys`).
 - **Export** — download the filtered Shows list (optionally with the personal overlay merged in) as CSV via `toCsv(rows)` (`Papa.unparse`) and stats as JSON; a printable Statistics layout would need a documented exception to the no-CSS rule (or inline `@media print` via `window.print` + a print-mode state).
 
 ### Components (`src/components/`)
@@ -75,12 +68,12 @@ Scope: `AppLayout`, `BottomNav`, `ChartsSection`, `CsvWarningBanner`, `ErrorStat
 - **Progress on `ShowCard`** — the card says "12 eps watched" with no total. A 3px progress strip along the poster's bottom edge (`completionColor`) plus a "✓ Completed" corner mark makes the grid readable at a glance.
 - **Clickable chart marks** — "Rating vs Popularity" dots and "Top 10 by Watch Time" bars are individual shows: `onClick` → `/shows/:id`, `cursor: pointer`, tooltip hint "click to open".
 - **`CsvWarningBanner` lists everything** — after 3 rows it says "see browser console", which non-dev users never open. Expand in place ("Show all 12") inside a max-height scroll box, plus a "Copy" button for pasting into a bug report.
-- **Self-healing stale chunk** — `RouteErrorBoundary` notes stale hashed chunks after a deploy but only offers Retry. Detect the dynamic-import failure (`Failed to fetch dynamically imported module` / `ChunkLoadError`) and reload once automatically (sessionStorage guard against loops); add a "Go to Dashboard" button next to Retry for real render errors.
+- **Self-healing stale chunk** — `PageError` (pages route `errorElement`) shows stale hashed chunks after a deploy but only offers Retry. Detect the dynamic-import failure (`Failed to fetch dynamically imported module` / `ChunkLoadError`) and reload once automatically (sessionStorage guard against loops); add a "Go to Dashboard" button next to Retry for real render errors.
 - **No spinner flash** — `LoadingState` shows instantly; the CSV usually loads in < 200ms, so users see a spinner blink. `Spin delay={200}` (one prop).
 - **Empty-chart states** — only Actors / Creators handle empty data ("No actor data"). Age ratings, languages, depth etc. render blank axes when the CSV lacks that column's data. A tiny `<ChartCard empty={!rows.length}>` wrapper with antd `Empty` (`image={Empty.PRESENTED_IMAGE_SIMPLE}`) for all 14.
 
 #### P2
-- **Global quick switcher (Ctrl/⌘ K)** — the header has empty space between title and `ThemeToggle`. A search box / modal (antd `AutoComplete`) over show names, actors, creators; Enter jumps to the show or to a filtered Shows page. Lives in `AppLayout`, data from the context it already reads.
+- **Global quick switcher (Ctrl/⌘ K)** — the header has empty space between title and `ThemeToggle`. A search box / modal (antd `AutoComplete`) over show names, actors, creators; Enter jumps to the show or to a filtered Shows page. Lives in `AppLayout`, data from the context it already reads. Register it via `useHotkeys` — which currently ignores every Ctrl / Meta / Alt combo, so it needs an opt-in modifier key syntax (e.g. `'Mod+k'`) first.
 - **Header data controls** — "Refresh data" icon (calls `refetch`) + "loaded 2 min ago" tooltip; useful while `series-search.py` is appending rows in another window.
 - **`StatsBar` with better tiles** — Hours / Minutes / Years are three tiles for one number. Keep Hours (with min/years as its hover text) and use the freed slots for Completed Shows, Avg Episode Runtime, Longest Show (by watch time), Shows Not Started.
 - **`StatCard` explanations + actions** — optional `info` prop (ⓘ tooltip: "Completion rate = episodes watched ÷ total episodes, all shows") and optional `onClick` (tile becomes a link, e.g. Top Genre → filtered Shows). Today metrics like Completion Rate are ambiguous (episode- vs show-weighted).
@@ -94,7 +87,7 @@ Scope: `AppLayout`, `BottomNav`, `ChartsSection`, `CsvWarningBanner`, `ErrorStat
 - **Tap active tab = scroll to top (`BottomNav`)** — iOS/Android convention: tapping the already-active item scrolls `Content` to 0 instead of a no-op navigate.
 - **`ShowCard` richer `aria-label`** — "Breaking Bad, 2008, rated 8.9, 62 of 62 episodes" instead of name only; sighted users get this from the card, screen-reader users currently don't.
 - **Offline-aware `ErrorState`** — when `navigator.onLine === false`, say "You're offline" and auto-retry on the `online` event; otherwise add "Copy details" for the error text.
-- **Component tests** — none of `src/components/` has a unit test (e2e only). jsdom + Testing Library for `CsvWarningBanner` (dismiss → refetch re-shows), `RouteErrorBoundary` (reset only on pathname change after an error), `StatCard` hover text, `FilterBar` chip removal.
+- **Component tests** — none of `src/components/` has a unit test (e2e only). jsdom + Testing Library for `CsvWarningBanner` (dismiss → refetch re-shows), `NavProgress` (delay, location-keyed visibility), `StatCard` hover text, `FilterBar` chip removal.
 - **Single nav/route config** — `NAV_ITEMS` (AppLayout) and the routes / lazy loaders (App) describe the same pages twice; one `ROUTES` table (`path`, `label`, `icon`, `loader`, `inNav`) feeds Menu, BottomNav, page title and router.
 
 #### P3
@@ -286,6 +279,24 @@ Finished work, kept for history. ✅ done · 🟡 in progress · ⬜ not started
 
 ### Shipped improvement ideas
 
+#### Entry / root — ✅ v0.4.29 (OpenSpec `support-subpath-hosting`)
+- ~~**Base path from `import.meta.env.BASE_URL`**~~ ✅ — `paths.ts` (`BASE_PATH` → router `basename`, `CSV_URL`), `csvFile.ts` for e2e; PWA manifest / navigate fallback / CSV cache pattern made base-relative; `npm run e2e:subpath` proves a `--base=/sub/` build end to end; `build:pages` + `scripts/copy-404.mjs` for GitHub Pages. Open: a GitHub Actions Pages deploy workflow (doc-only so far).
+
+#### Entry / root — ✅ v0.4.28 (OpenSpec `add-url-theme-override`)
+- ~~**URL theme override**~~ ✅ — `?theme=<option>` (case-insensitive, any selector option incl. System / Custom) applies for the visit, never saved, kept through in-app navigation and against other tabs' changes until a theme is picked; the boot script (moved to `src/themeBootScript.ts`, jsdom-tested) honors it at first paint. e2e `theme` fixture option. Not done: carrying `?accent=` for Custom (see the Custom theme design non-goals).
+
+#### Entry / root — ✅ v0.4.27 (OpenSpec `add-more-builtin-themes`)
+- ~~**More built-in themes**~~ ✅ — High Contrast (AAA text, ≥ 4.5:1 graphics), OLED Black, Nord, Solarized Light: data-only additions to `THEME_DEFS`, all passing the contract test unchanged (no palette nudging needed). Solarized Dark / Nord Light and Windows forced-colors support stay open (not planned yet). In High Contrast, antd's card outlines and preset genre-tag colors are softer than the theme's own colors (antd-derived / fixed presets).
+
+#### Entry / root — ✅ v0.4.26 (OpenSpec `add-custom-accent-theme`)
+- ~~**Custom accent theme**~~ ✅ — "Custom" in the theme selector: antd `ColorPicker` accent + Dark / Light base. `buildCustomTheme` overlays the accent (`colorPrimary`) and a hue-rotated, contrast-corrected 10-color chart palette on Default Dark / Light surfaces; saved as `customTheme`, field-by-field fallback; boot script paints the saved base. Pure color math in `utils/color.ts`, shared with the theme contract test.
+
+#### Entry / root — ✅ v0.4.25 (OpenSpec `add-global-keyboard-shortcuts`)
+- ~~**Global keyboard shortcuts**~~ ✅ — `g d` / `g s` / `g t` navigate, `/` focuses Shows search (navigating there first), `t` next theme, `?` cheat sheet (`ShortcutsHelp`). One dependency-free `useHotkeys(map, { enabled })` hook (typing-safe, modifier-safe) for the quick switcher / grid navigation ideas to reuse; the list is `SHORTCUTS` in `constants/shortcuts.ts`.
+
+#### Entry / root — ✅ v0.4.24 (OpenSpec `spike-data-router`)
+- ~~**Data router (`createBrowserRouter`)**~~ ✅ — spike passed all 5 go/no-go criteria (notes in the archived change's `spike-notes.md`). Route `lazy` via `lazyPage(key)`, one pathless pages route with `errorElement` `PageError` (+ `UndefinedThrowGuard`: React Router ignores `throw undefined`), layout `errorElement` rethrows to `RootErrorBoundary`; `NavProgress` keeps the current page visible while the next page's code loads. `RouteErrorBoundary` + `Suspense` removed.
+
 #### Entry / root — ✅ v0.4.23 (OpenSpec `add-pwa-offline`)
 - ~~**Installable PWA / offline**~~ ✅ — the app is static and already mobile-first (bottom nav). `vite-plugin-pwa` + manifest + service worker caching chunks and `tv_series.csv` (network-first) → home-screen icon, works offline. `<meta name="theme-color">` from the active theme comes with it. Shipped with a Reload prompt for new versions (`registerType: 'prompt'`), an offline notice, and a `pwa` Playwright project on `vite preview`; posters deliberately not cached.
 
@@ -345,7 +356,7 @@ Full list + remaining open items in [BUG_BACKLOG.md](BUG_BACKLOG.md). Fix notes 
 No unsafe sinks in `src/` (`dangerouslySetInnerHTML`/`innerHTML`/`eval`/`href`/`window.open`/`location.*`); CSV text rendered via React escaping; `:id` only used in `Number(id)` lookup; `navigate()` targets are static or numeric; localStorage reads type-checked.
 
 #### Components (`src/components/`) — ✅ Review complete (2026-11-23/24: simplify, code-review, security-review, Playwright browser check)
-- `AppLayout.tsx` — Sider + Header + Content shell; hosts `RouteErrorBoundary` + `Suspense` around `Outlet`
+- `AppLayout.tsx` — Sider + Header + Content shell; hosts `RouteErrorBoundary` + `Suspense` around `Outlet` (v0.4.24: plain `Outlet` + `NavProgress`, data router)
 - `BottomNav.tsx` — mobile bottom nav with its own scroll-driven visibility state (extracted from AppLayout in v0.4.13)
 - `ChartsSection.tsx` — 14 Recharts charts in 4 tabs; `AnimatedPie` child owns pie legend fade (added 2026-11-24)
 - `ShowCard.tsx`
@@ -355,7 +366,7 @@ No unsafe sinks in `src/` (`dangerouslySetInnerHTML`/`innerHTML`/`eval`/`href`/`
 - `ThemeToggle.tsx`
 - `LoadingState.tsx`
 - `ErrorState.tsx`
-- `RouteErrorBoundary.tsx` — catches page render / lazy-chunk errors, resets on pathname change (added 2026-11-23)
+- `RouteErrorBoundary.tsx` — catches page render / lazy-chunk errors, resets on pathname change (added 2026-11-23; replaced by route error elements in `RouteErrors.tsx`, v0.4.24)
 - `PosterThumb.tsx` — poster + `VideoCameraOutlined` fallback for empty OR broken/404 URL; used by Dashboard + ShowCard (added 2026-11-23)
 - `StatCard.tsx` — stat tile (icon badge, colored top border); `compact` variant for StatsBar (added 2026-11-23)
 

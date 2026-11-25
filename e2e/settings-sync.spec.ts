@@ -1,4 +1,4 @@
-import { test, expect, expectDocTheme, markNoReload, pickTheme, rgb, selectedTheme, spaNavigate, stillNoReload } from './fixtures'
+import { test, expect, expectDocTheme, markNoReload, pickTheme, rgb, selectedTheme, spaNavigate, stillNoReload, countStorageEvents, storageEvents } from './fixtures'
 import { THEMES } from '../src/themes'
 import { SETTINGS_KEY } from '../src/utils/settings'
 
@@ -49,17 +49,13 @@ test('corrupt or unknown settings from another tab are ignored', async ({ page: 
   await b.goto('/')
   await pickTheme(b, 'Dracula')
   // Count storage events B receives, so the assertions run after B has seen both writes
-  await b.evaluate(() => {
-    const w = window as unknown as { __storageEvents: number }
-    w.__storageEvents = 0
-    addEventListener('storage', () => { w.__storageEvents++ })
-  })
+  await countStorageEvents(b)
 
   await a.evaluate(key => {
     localStorage.setItem(key, '{not json')
     localStorage.setItem(key, JSON.stringify({ themeName: 'Solarized' }))
   }, SETTINGS_KEY)
-  await expect.poll(() => b.evaluate(() => (window as unknown as { __storageEvents: number }).__storageEvents)).toBe(2)
+  await expect.poll(() => storageEvents(b)).toBe(2)
 
   await expect(selectedTheme(b)).toHaveText('Dracula')
   await expectDocTheme(b, 'dark', rgb(THEMES['Dracula'].contentBg))

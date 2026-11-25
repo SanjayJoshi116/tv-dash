@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { test, expect, holdRoute, spaNavigate } from './fixtures'
+import { test, expect, CSV_GLOB, holdRoute, spaNavigate } from './fixtures'
 import { APP_NAME } from '../src/utils/pageTitle'
 
 const SUFFIX = ` · ${APP_NAME}`
@@ -47,7 +47,7 @@ test('unknown show ID → "Show not found"', async ({ page }) => {
 
 test('while data loads, Show Detail is titled "Show Detail"', async ({ page }) => {
   // Registered after the fixture's CSV route, so it runs first and holds the request back
-  const release = await holdRoute(page, '**/tv_series.csv')
+  const release = await holdRoute(page, CSV_GLOB)
   await page.goto('/shows/1')
   await expectTitle(page, 'Show Detail')
   release()

@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test'
-import { test, expect, content, pickTheme, spaNavigate, TEST_CSV } from './fixtures'
+import { test, expect, content, CSV_GLOB, pickTheme, spaNavigate, TEST_CSV } from './fixtures'
 import { THEMES } from '../src/themes'
 
 // Runs only via playwright.pwa.config.ts (`npm run e2e:pwa`): a production build on `vite preview`,
@@ -12,7 +12,6 @@ import { THEMES } from '../src/themes'
 // CSV + `context.setOffline(true)`, so the SW's NetworkFirst has to fall back to its cache.
 test.use({ csv: null, allowConsoleErrors: /ERR_INTERNET_DISCONNECTED|Failed to load resource/ })
 
-const CSV_GLOB = '**/tv_series.csv'
 
 async function serveCsv(context: BrowserContext) {
   await context.route(CSV_GLOB, r => r.fulfill({ status: 200, contentType: 'text/csv', body: TEST_CSV }))

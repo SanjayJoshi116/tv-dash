@@ -18,7 +18,7 @@ interface State {
 }
 
 // Outermost boundary (main.tsx): catches render errors in the shell — providers, router,
-// AppLayout — that RouteErrorBoundary (pages only) can't. The fallback uses plain elements and
+// AppLayout (rethrown by the layout route's RootRouteError) — that PageError (pages only) can't. The fallback uses plain elements and
 // CSS system colors: antd or the theme may be what crashed. Recovery is reload-based (the
 // router is inside), so no reset-on-navigation.
 export class RootErrorBoundary extends Component<Props, State> {

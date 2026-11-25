@@ -1,4 +1,4 @@
-import { test, expect, content, expectDocTheme, holdRoute, markNoReload, rgb, saveTheme, selectedTheme, stillNoReload, themeSelect } from './fixtures'
+import { test, expect, content, expectDocTheme, expectThemePainted, holdRoute, markNoReload, pickTheme, rgb, saveTheme, selectedTheme, stillNoReload, themeSelect } from './fixtures'
 import { THEMES } from '../src/themes'
 import { SETTINGS_KEY } from '../src/utils/settings'
 
@@ -92,15 +92,29 @@ test('first paint: saved Default Light applies before the app bundle runs', asyn
   await expectDocTheme(page, 'light', BG.light)
 })
 
-test('selector lists System first; a chosen theme persists across reload', async ({ page }) => {
+test('selector lists System first, Custom last; a chosen theme persists across reload', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/')
   await themeSelect(page).click()
   const options = page.locator('.ant-select-item-option')
-  await expect(options).toHaveText(['System', ...Object.keys(THEMES)])
+  await expect(options).toHaveText(['System', ...Object.keys(THEMES), 'Custom'])
   await options.filter({ hasText: 'Default Light' }).click()
   await expectDocTheme(page, 'light', BG.light)
   await page.reload()
   await expect(selectedTheme(page)).toHaveText('Default Light')
   await expectDocTheme(page, 'light', BG.light)
 })
+
+// Added built-in themes: pick each in the selector, open Statistics (charts render without console
+// errors — the fixture fails on any), document background = the theme's contentBg
+for (const name of ['High Contrast', 'OLED Black', 'Nord', 'Solarized Light'] as const) {
+  test(`${name}: selectable, renders Statistics, persists`, async ({ page }) => {
+    await page.goto('/stats')
+    await pickTheme(page, name)
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible()
+    await expectThemePainted(page, name)
+    await page.reload()
+    await expect(selectedTheme(page)).toHaveText(name)
+    await expectThemePainted(page, name)
+  })
+}

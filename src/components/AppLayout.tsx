@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
 import { Button, Grid, Layout, Menu, Typography } from 'antd'
 import { BarChartOutlined, DashboardOutlined, MenuFoldOutlined, MenuUnfoldOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { ThemeToggle } from './ThemeToggle'
-import { LoadingState } from './LoadingState'
-import { RouteErrorBoundary } from './RouteErrorBoundary'
+import { NavProgress } from './NavProgress'
+import { GlobalShortcuts } from './GlobalShortcuts'
 import { CsvWarningBanner } from './CsvWarningBanner'
 import { OfflineNotice } from './OfflineNotice'
 import { UpdatePrompt } from './UpdatePrompt'
@@ -150,6 +150,11 @@ export function AppLayout() {
           <ThemeToggle />
         </Header>
 
+        {/* Zero-height anchor: the bar overlays the top edge of Content without shifting it */}
+        <div style={{ position: 'relative', height: 0, zIndex: 1 }}>
+          <NavProgress />
+        </div>
+
         <Content
           ref={contentRef}
           style={{
@@ -166,14 +171,14 @@ export function AppLayout() {
             <UpdatePrompt />
             <OfflineNotice hasData={data.length > 0} />
             <CsvWarningBanner warnings={warnings} />
-            <RouteErrorBoundary pathname={location.pathname}>
-              <Suspense fallback={<LoadingState />}>
-                <Outlet />
-              </Suspense>
-            </RouteErrorBoundary>
+            {/* Page loading / errors are the router's: HydrateFallback (first load) and each
+                route's errorElement (App.tsx); later navigations keep this page + NavProgress */}
+            <Outlet />
           </div>
         </Content>
       </Layout>
+
+      <GlobalShortcuts />
 
       {broken && (
         <BottomNav

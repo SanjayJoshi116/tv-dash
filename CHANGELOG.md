@@ -1,5 +1,114 @@
 # Changelog
 
+## [0.4.30] — 2026-11-25
+
+Fixes from a code review of 0.4.24–0.4.29.
+
+### Fixed
+
+- **Custom theme readability:** a too-pale / too-dark accent no longer becomes an invisible `colorPrimary` (progress bars, highlights, nav progress bar, area / rating charts, active bottom-nav item): the primary is chart color 0 — the accent when ≥ 3:1 on the base, else its corrected shade. The picker still shows the exact color
+- **Primary-button text contrast in every theme:** antd draws it in fixed white — ~1.9:1 on High Contrast's yellow, also below 4.5:1 on Dracula, Nord, Solarized Light and pale Custom accents. New `src/antdTheme.ts` (`antdThemeConfig`) sets `colorTextLightSolid` to white or black against the primary antd actually renders (`getDesignToken`; the dark algorithm shifts it)
+- **Cross-tab race:** another tab's unrelated save within the 300ms Custom save delay no longer reverts this tab's accent (and leaves the tabs disagreeing)
+- **Router leak:** the data router is created in a mount effect and disposed on cleanup (StrictMode's extra router stayed subscribed to `popstate`)
+- **`/` shortcut:** works on Shows while it's still loading; a request whose Shows visit never happened is dropped when the app lands elsewhere
+- **Relative base (`--base=./`):** resolved once against the page URL (`resolveBase`), so the router basename and CSV URL are correct
+- **Narrow phones:** with Custom selected, the accent picker + base switch move into a "Customize" popover below `md` (the header overflowed at 320–360px)
+- Accent presets no longer list `#6366f1` twice
+
+### Added
+
+- Theme contract: `colorPrimary` ≥ 3:1 vs background and primary-button text ≥ 4.5:1 on the rendered primary, for every theme and 7 Custom samples; `ThemeContext.test.tsx` (Custom save / cross-tab race), `paths.test.ts` (`resolveBase`), `readableTextOn` tests; e2e for `/` while Shows loads, a stale `/` request, the narrow-phone Customize popover and deduped presets — 562 unit, 101 e2e (91 + 4 PWA + 6 sub-path)
+
+## [0.4.29] — 2026-11-25
+
+OpenSpec change `support-subpath-hosting` implemented and archived (`openspec/changes/archive/2026-11-25-support-subpath-hosting`). New main spec `subpath-hosting`. No changes open.
+
+### Added
+
+- **Sub-path hosting:** `vite build --base=/<path>/` is the only change needed to serve the app under a path (e.g. GitHub Pages at `/tv-dash/`). Router `basename` and the CSV URL come from `import.meta.env.BASE_URL` (`src/constants/paths.ts`); root deploys unchanged
+- `npm run build:pages` (`--base=/tv-dash/` + `scripts/copy-404.mjs`: `dist/index.html` → `404.html`, GitHub Pages' deep-link fallback); README "Deploying under a sub-path"
+- `npm run e2e:subpath` (`playwright.subpath.config.ts`, `e2e/subpath.spec.ts`, 6): `--base=/sub/` build + `vite preview` — data only from `/sub/`, navigation + highlight, deep link, not-found, manifest + icons, service worker scope. CI step added; `dist-sub/` gitignored
+- 485 unit (484 after the simplify pass below), 97 e2e (87 + 4 PWA + 6 sub-path)
+
+### Changed
+
+- PWA config made base-relative: manifest `start_url` / `scope` from the plugin (= base), relative icon `src`s, `navigateFallback: 'index.html'`, CSV cache pattern `endsWith('/tv_series.csv')`
+- e2e: `CSV_GLOB` (from `src/constants/csvFile.ts`) replaces three hand-typed `**/tv_series.csv` globs; `useTvData.test` checks the fetched URL
+
+### Changed (simplify pass over 0.4.24–0.4.29)
+
+- **Custom theme:** dragging the accent picker no longer re-themes the whole app on every pointer move — the Theme is rebuilt from `useDeferredValue(custom)`. Every Custom change (drag, hex input, preset, base) now saves through one debounced `setCustom` (flushed on unmount) instead of `saveCustom` + save-on-picker-close
+- **`/` shortcut:** the "focus Shows search" handoff is a one-shot module request (`src/utils/searchFocus.ts`, with `SHOWS_SEARCH_ID` shared by FilterBar / GlobalShortcuts / ShowsPage) instead of router state that had to be cleared from history — `ShowsPage` no longer uses `useLocation` / `useNavigate`
+- `resolveThemeName` no longer has an unused Custom branch / `customBase` parameter (type excludes Custom); `customChartColors` parses the accent once and reuses `hslToHex`; the boot script derives the System pair once; unused exports dropped (`paths.ts` re-export, `NAV_PROGRESS_DELAY_MS`, `withThemeParam`)
+- e2e helpers shared in `fixtures.ts` instead of copied per spec: `header`, `sidebarItem`, `expectThemePainted`, `seedSettings` / `storedSettings`, `countStorageEvents` / `storageEvents`, `crashModule`, and `allowProvokedErrors` (crash-spec allowlists no longer list component names) — 484 unit (one obsolete `resolveThemeName` case removed), e2e unchanged
+
+## [0.4.28] — 2026-11-25
+
+OpenSpec change `add-url-theme-override` implemented and archived (`openspec/changes/archive/2026-11-25-add-url-theme-override`). New main spec `theme-url-override`. 1 change still open.
+
+### Added
+
+- **`?theme=<name>` URL override:** opens the visit in any selector option (case-insensitive, `%20` / `+` decoded, first param wins; unknown / empty ignored) **without saving it**. Kept through in-app navigation and not replaced by another tab's theme change; picking a theme (selector or `t`) ends it and saves as usual. The first paint already honors it
+- e2e `theme` fixture option (`?theme=` on every `goto`, `withThemeParam`) and `e2e/theme-override.spec.ts` (6); `themeBootScript.test.ts` runs the generated boot script in jsdom (15); `readThemeOverride` tests; root smoke test cases — 485 unit, 91 e2e (87 + 4 PWA)
+
+### Changed
+
+- The boot script generator moved from `vite.config.ts` to `src/themeBootScript.ts` (import-free deps, in `tsconfig.node.json`) so its output is unit-tested
+
+## [0.4.27] — 2026-11-25
+
+OpenSpec change `add-more-builtin-themes` implemented and archived (`openspec/changes/archive/2026-11-25-add-more-builtin-themes`). New main spec `builtin-themes`. 2 changes still open.
+
+### Added
+
+- **Four themes** after Dracula in the selector: **High Contrast** (white on black, yellow accent; text ≥ 7:1, chart colors + border ≥ 4.5:1), **OLED Black** (Default Dark colors on `#000` content + header), **Nord** (Polar Night / Frost / Aurora), **Solarized Light** (base3, accents darkened to ≥ 3:1). Each with its own rating tiers + star; all pass the theme contract unchanged; the boot script, `ThemeName` and the `t` shortcut pick them up automatically. System still resolves only to Default Dark / Default Light
+- Tests: contract over the new themes, table order, High Contrast AAA / 4.5:1 assertions, OLED `#000` surfaces, System → defaults only; e2e per new theme (pick on Statistics, document background, persisted) — 448 unit, 85 e2e (81 + 4 PWA)
+
+## [0.4.26] — 2026-11-25
+
+OpenSpec change `add-custom-accent-theme` implemented and archived (`openspec/changes/archive/2026-11-25-add-custom-accent-theme`). New main spec `custom-theme`. 3 changes still open.
+
+### Added
+
+- **Custom theme:** "Custom" in the theme selector (last). While selected, an accent color picker (hex input, built-in primaries as presets; the trigger is a focusable `#theme-accent` button) and a Dark / Light base switch (`#theme-base`) show next to it; changes apply live. Surfaces, text, rating tiers and the star come from Default Dark / Default Light; the accent becomes antd's `colorPrimary` and seeds a 10-color chart palette (hue + i·36°, saturation 0.45–0.85, lightness corrected until ≥ 3:1 on the background, checked on the rounded hex)
+- `customTheme` setting `{ accent, base }` — kept while another theme is selected, field-by-field fallback (invalid base → dark, invalid accent → base primary), syncs across tabs; the boot script paints a saved Custom theme with its base
+- `src/utils/color.ts` — hex / RGB / HSL + WCAG contrast; `contrast.fixture.ts` (theme contract, e2e badge check) now uses it
+- `color.test.ts`, `customTheme.test.ts` (incl. a 1560-combination readability sweep), theme contract over 5 sample Custom themes, `e2e/custom-theme.spec.ts` (6) — 361 unit, 81 e2e (77 + 4 PWA)
+
+### Changed
+
+- The `t` shortcut's cycle includes Custom
+
+## [0.4.25] — 2026-11-25
+
+OpenSpec change `add-global-keyboard-shortcuts` implemented and archived (`openspec/changes/archive/2026-11-25-add-global-keyboard-shortcuts`). New main spec `keyboard-shortcuts`. 4 changes still open.
+
+### Added
+
+- **Keyboard shortcuts** on every page: `g d` / `g s` / `g t` → Dashboard / Shows / Statistics, `/` → Shows search (navigates there first; the `/` isn't typed), `t` → next theme (saved like the selector), `?` → cheat sheet (`ShortcutsHelp`, Escape closes and returns focus; other shortcuts off while open). Ignored while typing in a field / select and with Ctrl / ⌘ / Alt
+- `useHotkeys(map, { enabled })` — the one app-wide `keydown` listener: `e.key` matching, `g x` sequences (1s), typing-target / modifier / IME / auto-repeat suppression, map in a ref. `SHORTCUTS` (`constants/shortcuts.ts`) feeds both the handlers (`Record<ShortcutKey, …>`, compile-checked) and the cheat sheet
+- `useHotkeys.test.ts` (21), `e2e/shortcuts.spec.ts` (7) — 231 unit, 75 e2e (71 + 4 PWA)
+
+### Changed
+
+- `ShowsPage` focuses the search field when opened via `/` (focused once data has loaded)
+
+## [0.4.24] — 2026-11-25
+
+OpenSpec change `spike-data-router` implemented and archived (`openspec/changes/archive/2026-11-25-spike-data-router`) — the spike passed all 5 go/no-go criteria (`spike-notes.md` there). New main spec `navigation-feedback`. 5 changes still open.
+
+### Changed
+
+- **Data router:** `BrowserRouter` / `<Routes>` → `createBrowserRouter` + `RouterProvider`; pages load through route `lazy` (`lazyPage(key)` over `PAGE_LOADERS` — the same `import()` as prefetch, still one request per page module). No `React.lazy` / `Suspense` left
+- **Navigation feedback:** moving to a page whose code isn't loaded yet keeps the current page on screen with a thin progress bar at the top of the content area (`NavProgress`, `useNavigation()`, 150ms delay so fast navigations don't flash it, static under reduced motion) instead of swapping it for a centered spinner. The first load still shows the spinner (route `HydrateFallback`), now inside the layout
+- **Page errors:** `RouteErrorBoundary` (manual pathname reset) replaced by one pathless route's `errorElement` (`PageError`) — React Router clears it on the next navigation; `UndefinedThrowGuard` keeps `throw undefined` in the layout (React Router's boundary ignores it). The layout route's `errorElement` (`RootRouteError`) rethrows, so shell crashes still reach `RootErrorBoundary`'s recovery screen
+- `/shows/1 → /shows/2` still reuses the Show Detail instance; scroll reset, BottomNav re-show and page titles unchanged
+
+### Added
+
+- `e2e/navigation.spec.ts` (8): kept page + progress bar while a page module is held back (appear / disappear traced — no StrictMode flicker), no bar for a loaded page, one module request for hover + click, in-layout error on navigation + recovery on the next page, `throw undefined`, show-to-show without remount, first-load spinner inside the layout, reduced motion
+- 210 unit, 68 e2e (64 + 4 PWA)
+
 ## [0.4.23] — 2026-11-25
 
 OpenSpec change `add-pwa-offline` implemented and archived (`openspec/changes/archive/2026-11-25-add-pwa-offline`; new main spec `offline-support`). 6 changes still open.

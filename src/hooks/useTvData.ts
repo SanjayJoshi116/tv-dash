@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TvSeries } from '../types/series'
 import { parseSeriesCsv } from '../utils/parseSeriesCsv'
+import { CSV_URL } from '../constants/paths'
 
 const FETCH_TIMEOUT_MS = 10_000
 
@@ -31,7 +32,7 @@ export function useTvData() {
     let timedOut = false
     const timeoutId = setTimeout(() => { timedOut = true; controller.abort() }, FETCH_TIMEOUT_MS)
 
-    fetch('/tv_series.csv', { signal: controller.signal })
+    fetch(CSV_URL, { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`)
         return r.text()

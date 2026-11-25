@@ -3,6 +3,8 @@ import { test as base, expect, type Locator, type Page } from '@playwright/test'
 // (series-search.py FIELDNAMES order), so the column contract lives in one TS place
 import { csv } from '../src/utils/parseSeriesCsv.fixture'
 import { SETTINGS_KEY } from '../src/utils/settings'
+import { CSV_FILE } from '../src/constants/csvFile'
+import { THEMES, type ThemeName } from '../src/themes'
 
 // 1×1 PNG — a poster that always loads (quoted in the CSV: the data URI contains a comma)
 export const GOOD_POSTER =
@@ -61,21 +63,39 @@ export const TEST_CSV = csv(
 // `allowConsoleErrors`: one pattern for errors a test provokes on purpose (default none), e.g.
 // `test.use({ allowConsoleErrors: /boom/ })` in a spec that forces a crash. A RegExp, not an
 // array — Playwright reads an array option value as a `[value, options]` tuple.
+// Path-agnostic, so it also matches the CSV under a sub-path base (/sub/tv_series.csv)
+export const CSV_GLOB = `**/${CSV_FILE}`
+
 // Fixture routes: `body` for tv_series.csv (null = real file) + the broken poster
 async function serveFixtures(page: Page, body: string | null) {
-  if (body != null) await page.route('**/tv_series.csv', r => r.fulfill({ status: 200, contentType: 'text/csv', body }))
+  if (body != null) await page.route(CSV_GLOB, r => r.fulfill({ status: 200, contentType: 'text/csv', body }))
   await page.route(`**${BROKEN_POSTER}`, r => r.fulfill({ status: 200, contentType: 'image/png', body: 'not a png' }))
+}
+
+// `theme` option: every page.goto gets `?theme=<name>` (the URL override — applied for that load,
+// never saved), so a test runs in a theme without driving the selector or touching storage.
+function withThemeParam(url: string, theme: string): string {
+  const hashAt = url.indexOf('#')
+  const [base, hash] = hashAt < 0 ? [url, ''] : [url.slice(0, hashAt), url.slice(hashAt)]
+  return `${base}${base.includes('?') ? '&' : '?'}theme=${encodeURIComponent(theme)}${hash}`
+}
+function applyTheme(page: Page, theme: string | null) {
+  if (theme == null) return
+  const goto = page.goto.bind(page)
+  page.goto = (url, options) => goto(withThemeParam(url, theme), options)
 }
 
 // `newTab()`: another page in the same browser context (shares localStorage, gets `storage`
 // events) with the same fixture routes and console-error check as `page`.
 export const test = base.extend<{
   csv: string | null
+  theme: string | null
   allowConsoleErrors: RegExp | null
   watchConsole: (page: Page) => void
   newTab: () => Promise<Page>
 }>({
   csv: [TEST_CSV, { option: true }],
+  theme: [null, { option: true }],
   allowConsoleErrors: [null, { option: true }],
   watchConsole: [
     async ({ allowConsoleErrors }, use) => {
@@ -89,15 +109,17 @@ export const test = base.extend<{
     },
     { auto: true },
   ],
-  page: async ({ page, csv, watchConsole }, use) => {
+  page: async ({ page, csv, theme, watchConsole }, use) => {
     watchConsole(page)
+    applyTheme(page, theme)
     await serveFixtures(page, csv)
     await use(page)
   },
-  newTab: async ({ context, csv, watchConsole }, use) => {
+  newTab: async ({ context, csv, theme, watchConsole }, use) => {
     await use(async () => {
       const tab = await context.newPage()
       watchConsole(tab)
+      applyTheme(tab, theme)
       await serveFixtures(tab, csv)
       return tab
     })
@@ -106,6 +128,9 @@ export const test = base.extend<{
 export { expect }
 
 export const content = (page: Page): Locator => page.locator('.ant-layout-content')
+// Header title (AppLayout's level-4 Title) and a desktop sidebar nav item
+export const header = (page: Page, name: string): Locator => page.locator('.ant-layout-header').getByRole('heading', { name })
+export const sidebarItem = (page: Page, name: string): Locator => page.locator('.ant-layout-sider').getByRole('menuitem', { name })
 export const scrollContent = (page: Page, y: number) => content(page).evaluate((el, top) => el.scrollTo(0, top), y)
 // Mobile BottomNav (below lg)
 export const bottomNav = (page: Page): Locator => page.locator('nav').filter({ has: page.getByRole('button', { name: 'Dashboard' }) })
@@ -123,6 +148,49 @@ export async function pickTheme(page: Page, name: string): Promise<void> {
 export async function saveTheme(page: Page, themeName: string): Promise<void> {
   await page.addInitScript(([key, name]) => localStorage.setItem(key, JSON.stringify({ themeName: name })), [SETTINGS_KEY, themeName] as const)
 }
+
+// <html> painted in a theme (color scheme + contentBg), by name
+export async function expectThemePainted(page: Page, name: ThemeName): Promise<void> {
+  await expectDocTheme(page, THEMES[name].isDark ? 'dark' : 'light', rgb(THEMES[name].contentBg))
+}
+
+// Writes tvdash-settings once (after loading `/`, so the origin's storage exists); the caller
+// reloads / navigates. For a value that must survive every reload use saveTheme.
+export async function seedSettings(page: Page, settings: Record<string, unknown>): Promise<void> {
+  await page.goto('/')
+  await page.evaluate(([key, value]) => localStorage.setItem(key, value), [SETTINGS_KEY, JSON.stringify(settings)] as const)
+}
+// Parsed tvdash-settings, or null when nothing is saved
+export const storedSettings = (page: Page): Promise<Record<string, unknown> | null> =>
+  page.evaluate(key => { const raw = localStorage.getItem(key); return raw === null ? null : JSON.parse(raw) }, SETTINGS_KEY)
+
+// Counts `storage` events the page receives from now on — wait on storageEvents() so an assertion
+// about another tab's write can't pass before the event has arrived
+type StorageCountWindow = { __storageEvents: number }
+export async function countStorageEvents(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as unknown as StorageCountWindow
+    w.__storageEvents = 0
+    addEventListener('storage', () => { w.__storageEvents++ })
+  })
+}
+export const storageEvents = (page: Page): Promise<number> =>
+  page.evaluate(() => (window as unknown as StorageCountWindow).__storageEvents)
+
+// Serves `export function <exportName>() { <body> }` in place of a source module (Vite dev serves
+// /src/... as ES modules) — forces a crash with no test hooks in app code. The trailing * covers
+// ?t= / ?v= queries.
+export async function crashModule(page: Page, file: string, exportName: string, body: string): Promise<void> {
+  await page.route(`**/src/${file}*`, r =>
+    r.fulfill({ status: 200, contentType: 'application/javascript', body: `export function ${exportName}() { ${body} }` }),
+  )
+}
+
+// allowConsoleErrors for a provoked crash: the spec's own marker (e.g. 'boom: page crash') plus
+// the reports React / React Router log for any caught render error — whichever component or
+// error layer logs them, so a new boundary or a rename doesn't widen every spec's pattern.
+export const allowProvokedErrors = (marker: string): RegExp =>
+  new RegExp(`${marker}|The above error occurred|React Router caught`)
 
 // #rrggbb → the computed-style `rgb(r, g, b)` string
 export function rgb(hex: string): string {

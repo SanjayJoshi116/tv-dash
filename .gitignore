@@ -5,6 +5,8 @@ public/.tv_series-*.csv.tmp
 
 node_modules/
 dist/
+# sub-path build used by npm run e2e:subpath
+dist-sub/
 coverage/
 *.tsbuildinfo
 # stale root output of `tsc -b` before tsconfig.node.json got an outDir — delete if present

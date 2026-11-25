@@ -20,6 +20,8 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 |---|---|
 | ![Mobile](docs/screenshots/mobile.png) | ![Default Light](docs/screenshots/theme-light.png) |
 
+**Screenshot tip:** add `?theme=<name>` to any URL (e.g. `/stats?theme=Nord`, `?theme=default+light`) to open it in that theme for one visit without changing your saved choice — no flash on load, case doesn't matter.
+
 ## Highlights
 
 - 14 Recharts analytics grouped into 4 tabs (Overview / Watch Time / Ratings / People & Networks), all `useMemo`-ized
@@ -37,9 +39,9 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 - **Poster grid** — responsive card grid (2–8 columns) with TMDB poster images, rating badges, genre tags, and pagination
 - **Responsive layout** — icon-rail collapsible sidebar on desktop (collapse trigger at the bottom of the sidebar itself); on phone, the sidebar is replaced entirely by a fixed bottom nav bar that auto-hides on scroll; capped/centered content column; prefetched route chunks
 - **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker, graceful fallback for missing/broken poster images, and a proper empty state for an invalid show ID; "Show more" appears only when the overview is actually truncated
-- **3 themes + System** — Default Dark, Default Light, Dracula, or System (follows the OS light/dark setting live; the default on first visit); persists across sessions. Scrollbars and native controls match the theme, and the page paints in the right theme colors before the app loads (no flash)
-- **Accessibility** — labeled form fields (`aria-label`/`id` on all filters), keyboard-operable cards and list items across the Dashboard (`role="button"`, Enter/Space handlers), hover tooltips on the collapsed sidebar; respects the OS reduce-motion setting (no chart / UI animations, bottom nav hides without sliding)
-- **Resilient routing** — per-route browser tab titles (show name on Show Detail, also in the header); 404 page for unknown URLs; per-route error boundary keeps the layout up if a page crashes or a lazy chunk fails to load; every navigation starts at the top of the page; trailing-slash URLs resolve to the right nav item
+- **7 themes + System + Custom** — Default Dark, Default Light, Dracula, High Contrast (extra-strong contrast for low vision / bright rooms), OLED Black (true black for OLED phones), Nord, Solarized Light, System (follows the OS light/dark setting live; the default on first visit), or Custom: pick any accent color on a dark or light base and the chart palette is derived from it, every chart color kept readable (≥ 3:1) on the background; persists across sessions. Scrollbars and native controls match the theme, and the page paints in the right theme colors before the app loads (no flash)
+- **Accessibility** — labeled form fields (`aria-label`/`id` on all filters), keyboard-operable cards and list items across the Dashboard (`role="button"`, Enter/Space handlers), hover tooltips on the collapsed sidebar; keyboard shortcuts (`g d` / `g s` / `g t` switch pages, `/` jumps to Shows search, `t` next theme, `?` lists them — off while typing in a field); respects the OS reduce-motion setting (no chart / UI animations, bottom nav hides without sliding)
+- **Resilient routing** — per-route browser tab titles (show name on Show Detail, also in the header); 404 page for unknown URLs; a page crash or failed page-code load shows an error inside the layout (navigation keeps working) and clears on the next navigation; moving to a page that isn't loaded yet keeps the current one on screen with a thin progress bar instead of a blank spinner; every navigation starts at the top of the page; trailing-slash URLs resolve to the right nav item
 
 ## Architecture & Data Flow
 
@@ -73,6 +75,24 @@ npm run preview    # preview the production build locally
 ```
 
 To deploy, serve the contents of `dist/` from any static host (Vercel, Netlify, GitHub Pages, nginx, etc.).
+
+### Deploying under a sub-path
+
+The default build expects to be served from a domain root (`https://example.com/`). To host it under a path — e.g. a GitHub Pages project site at `https://<user>.github.io/tv-dash/` — set Vite's base when building; nothing else changes:
+
+```bash
+npm run build -- --base=/tv-dash/   # any path, with leading and trailing slash
+```
+
+Routes, the CSV (`/tv-dash/tv_series.csv` — put `tv_series.csv` in `dist/` next to `index.html`), the PWA manifest and the service worker all follow the base.
+
+**Deep links need an SPA fallback** — the server must answer unknown paths under the base (`/tv-dash/shows/12`) with `index.html`. Netlify / Vercel / nginx: a rewrite rule. **GitHub Pages** has none, but serves `404.html` for unknown paths, so ship a copy of `index.html` under that name:
+
+```bash
+npm run build:pages   # = build with --base=/tv-dash/ + copy dist/index.html → dist/404.html
+```
+
+(Edit the base in `package.json` if your repository isn't called `tv-dash`.) A relative base (`--base=./`) also works when the app is opened at its folder, but deep links need an absolute base. Opening the base without its trailing slash (`/tv-dash`) relies on the host redirecting to `/tv-dash/` — GitHub Pages does; `vite preview` doesn't.
 
 ### Install & offline (PWA)
 
@@ -162,7 +182,7 @@ python series-search.py
 - [Ant Design 5.25+](https://ant.design) — UI components and theming
 - [Recharts 2.12](https://recharts.org) — charts
 - [PapaParse 5.4](https://www.papaparse.com) — CSV parsing
-- [React Router 7.18](https://reactrouter.com) — routing
+- [React Router 7.18](https://reactrouter.com) — routing (data router: route `lazy`, error elements, `useNavigation`)
 - [Vite 5.3](https://vitejs.dev) — build tool
 - [vite-plugin-pwa 2](https://vite-pwa-org.netlify.app) (Workbox) — manifest + service worker
 
@@ -173,9 +193,14 @@ python series-search.py
 - `src/hooks/useTvData.test.ts` — fetch lifecycle (loading/success/error/retry, superseded response, timeout)
 - `src/utils/parseSeriesCsv.test.ts` — CSV parsing rules (row mapping, skipped rows, fatal errors, numeric fallbacks); shared CSV fixtures in `parseSeriesCsv.fixture.ts`
 - `src/utils/derive.test.ts` — every aggregation function in `derive.ts`
+- `src/utils/color.test.ts` / `src/customTheme.test.ts` — color math + WCAG contrast, and the Custom palette staying readable and distinct for 1560 accent / base combinations
+- `src/ThemeContext.test.tsx` — Custom accent saving (debounced, flushed on unmount) and cross-tab sync that never reverts an unsaved change
+- `src/constants/paths.test.ts` — resolving Vite's base (absolute / relative) for the router and CSV URL
+- `src/themeBootScript.test.ts` — runs the generated no-flash script against URL overrides, saved / corrupt settings and `?reset`
 - `src/constants/ui.test.ts` — color helpers (per-theme rating / completion tiers) and status ordering
-- `src/themes.test.ts` — theme preference parsing, System → Default Dark / Light resolution, and a **theme contract** (every theme complete, 10 distinct chart colors, WCAG AA contrast for chart text and colors, tier fills, badge text on fills and the rating star)
+- `src/themes.test.ts` — theme preference parsing (incl. Custom settings fallbacks), System → Default Dark / Light resolution, and a **theme contract** (every theme — built-ins and sample Custom themes — complete, 10 distinct chart colors, WCAG AA contrast for chart text and colors, tier fills, badge text on fills and the rating star)
 - `src/hooks/useMediaQuery.test.ts` / `src/hooks/useOnlineStatus.test.ts` — live `matchMedia` and online/offline hooks (jsdom)
+- `src/hooks/useHotkeys.test.ts` — keyboard shortcut hook: sequences + timeout, suppression while typing / with modifiers (jsdom)
 - `src/utils/pageTitle.test.ts` / `src/hooks/useDocumentTitle.test.ts` — header + browser tab title per route
 - `src/App.test.tsx` — root smoke test: the real app mounts every route, handles corrupt saved settings and switches theme (the slowest suite, ~20–40s: it loads antd + Recharts in jsdom)
 - `src/routes/pageLoaders.test.ts` — idle-prefetch connection policy, prefetch dedupe / retry
@@ -187,12 +212,13 @@ npm run test        # run once
 npm run test:watch  # watch mode
 ```
 
-**Browser e2e** — [Playwright](https://playwright.dev) suite in `e2e/` (dashboard, show detail, shows page, mobile bottom nav, theme / System / first paint, page titles, crash recovery / `?reset`, reduced motion, rating badge contrast, cross-tab settings sync, route prefetch) plus a separate `pwa` suite (`npm run e2e:pwa`) that builds the app and runs against `vite preview` with service workers on (manifest, offline reload of every page from the cache, offline notice, `theme-color`). It serves its own synthetic CSV (skipped rows, blank / `N/A` / fractional / huge values, broken posters) via route interception, so it never depends on your data; a separate smoke test checks the real `public/tv_series.csv` when present.
+**Browser e2e** — [Playwright](https://playwright.dev) suite in `e2e/` (dashboard, show detail, shows page, mobile bottom nav, theme / System / first paint, page titles, crash recovery / `?reset`, reduced motion, rating badge contrast, cross-tab settings sync, route prefetch, navigation progress bar / in-layout page errors, keyboard shortcuts, Custom accent theme) plus a separate `pwa` suite (`npm run e2e:pwa`) that builds the app and runs against `vite preview` with service workers on (manifest, offline reload of every page from the cache, offline notice, `theme-color`). It serves its own synthetic CSV (skipped rows, blank / `N/A` / fractional / huge values, broken posters) via route interception, so it never depends on your data; a separate smoke test checks the real `public/tv_series.csv` when present.
 
 ```bash
 npx playwright install chromium   # once per machine
 npm run e2e                       # starts the dev server on :5199 automatically
 npm run e2e:pwa                   # PWA suite: builds, then runs against vite preview on :4199
+npm run e2e:subpath               # sub-path suite: builds with --base=/sub/, then vite preview on :5299
 ```
 
 **CSV generator** — `scripts/test_series_search.py` imports `series-search.py` and drives its real Tk window with TMDB faked and a temp CSV (your CSV and API key are never used) — including checks that the window stays responsive while a request is slow. Needs a display, so it's local-only. `npm run test:gen` finds `python` / `py` / `python3` itself (`scripts/run-python.mjs`).
@@ -223,29 +249,38 @@ npm run test:gen
 
 ```
 src/
-├── themes.ts                 # 3 typed theme definitions (ThemeName) + Theme type, System preference resolver (dependency-free: vite.config.ts imports it)
+├── themes.ts                 # 7 typed theme definitions (ThemeName) + Theme type, System preference resolver (dependency-free: vite.config.ts imports it)
+├── customTheme.ts            # Custom theme: buildCustomTheme(accent, base) + readable derived chart palette
+├── themeBootScript.ts        # Generates the inline no-flash theme script (URL override → saved → System)
+├── antdTheme.ts              # antd ConfigProvider theme: algorithm, readable primary-button text, motion
 ├── ThemeContext.tsx           # AppThemeProvider (theme state, persistence, antd ConfigProvider) + useTheme() / useThemeSetting()
 ├── constants/
+│   ├── csvFile.ts            # CSV_FILE (env-free, shared with e2e)
+│   ├── paths.ts              # BASE_PATH (router basename), CSV_URL — from Vite's base (sub-path / relative)
+│   ├── shortcuts.ts          # SHORTCUTS: the global keyboard shortcut list (handlers + cheat sheet)
 │   └── ui.ts                 # Shared colors, spacing, card style, status table + color helpers (tier colors read the theme)
 ├── context/
 │   ├── TvDataContext.tsx     # TvDataProvider (wraps useTvData)
 │   └── useTvDataContext.ts   # Context object + useTvDataContext() hook
 ├── hooks/
 │   ├── useDocumentTitle.ts   # Sets the browser tab title
+│   ├── useHotkeys.ts         # Global keys + `g x` sequences, off while typing / with Ctrl·⌘·Alt
 │   ├── useMediaQuery.ts      # Live matchMedia (prefers-color-scheme)
 │   ├── useOnlineStatus.ts    # Live navigator.onLine (offline notice)
 │   ├── usePrefersReducedMotion.ts # OS reduce-motion preference
 │   └── useTvData.ts          # CSV fetch hook (loading/error/refetch)
 ├── routes/
-│   └── pageLoaders.ts         # Lazy pages, prefetchPage(), idle prefetch policy (Data Saver / 2G)
+│   └── pageLoaders.ts         # Route lazy loaders (lazyPage), prefetchPage(), idle prefetch policy (Data Saver / 2G)
 ├── types/
 │   ├── filters.ts             # Filters, SortKey (Shows page)
 │   └── series.ts              # TvSeries interface (unknown = null), NameValue/NameCount
 ├── utils/
 │   ├── a11y.ts                # activateOnKey (Enter/Space for role="button")
+│   ├── color.ts               # Hex / RGB / HSL conversion + WCAG contrast (Custom palette, theme contract)
 │   ├── derive.ts              # Stats and chart data helpers
 │   ├── lookup.ts              # Own-key lookup for CSV-derived keys
 │   ├── pageTitle.ts           # Page title per route (header + tab)
+│   ├── searchFocus.ts         # Shows search id + the `/` shortcut's one-shot focus request
 │   ├── serviceWorker.ts       # Activate a waiting service worker (crash screen Reload)
 │   ├── parseSeriesCsv.ts      # Pure CSV → TvSeries[] parsing + row validation
 │   └── settings.ts            # localStorage persistence, subscribeSettings (cross-tab), resetSettings / ?reset
@@ -256,11 +291,14 @@ src/
 │   ├── CsvWarningBanner.tsx   # Dismissible banner for skipped CSV rows
 │   ├── ErrorState.tsx         # Shared error alert with retry
 │   ├── FilterBar.tsx          # Search, genre, status, sort controls
+│   ├── GlobalShortcuts.tsx    # Registers the keyboard shortcuts (useHotkeys) + opens the cheat sheet
 │   ├── LoadingState.tsx       # Shared loading spinner
+│   ├── NavProgress.tsx        # Top progress bar while the next page's code loads
 │   ├── OfflineNotice.tsx      # "Offline — showing saved data" notice
 │   ├── PosterThumb.tsx        # Poster image + placeholder fallback (empty or 404 URL)
 │   ├── RootErrorBoundary.tsx  # Shell crash → plain recovery screen (Reload / Reset saved settings)
-│   ├── RouteErrorBoundary.tsx # Catches page render / chunk-load errors
+│   ├── RouteErrors.tsx        # Route error elements: PageError (in-layout), RootRouteError (→ RootErrorBoundary)
+│   ├── ShortcutsHelp.tsx      # `?` keyboard shortcut cheat sheet (Modal)
 │   ├── ShowCard.tsx           # Individual show card
 │   ├── ShowGrid.tsx           # Responsive CSS-grid of ShowCards
 │   ├── StatCard.tsx           # Shared stat tile (Dashboard, StatsBar, Show Detail)
@@ -290,6 +328,8 @@ public/
 | `npm run test` | Run unit tests (Vitest) |
 | `npm run e2e` | Run browser e2e tests (Playwright) |
 | `npm run e2e:pwa` | Run the PWA / offline e2e suite (builds first) |
+| `npm run e2e:subpath` | Run the sub-path deploy e2e suite (builds with `--base=/sub/` first) |
+| `npm run build:pages` | Build for GitHub Pages at `/tv-dash/`, with `404.html` deep-link fallback |
 | `npm run test:gen` | Check `series-search.py` (Tk, local only) |
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier |

@@ -23,7 +23,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: 'pwa.spec.ts',
+      testIgnore: ['pwa.spec.ts', 'subpath.spec.ts'],
       use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } },
     },
   ],

@@ -6,6 +6,7 @@ import { ShowGrid } from '../components/ShowGrid'
 import { LoadingState } from '../components/LoadingState'
 import { ErrorState } from '../components/ErrorState'
 import { getSettings, saveSetting } from '../utils/settings'
+import { SHOWS_SEARCH_ID, takeSearchFocusRequest } from '../utils/searchFocus'
 import { compareDescNullsLast, recentFirst, uniqueGenres } from '../utils/derive'
 import { SECTION_GAP, SORT_OPTIONS } from '../constants/ui'
 import type { TvSeries } from '../types/series'
@@ -39,6 +40,13 @@ export function ShowsPage() {
   const [filters, setFilters] = useState<Filters>(loadFilters)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
+
+  // `/` shortcut from another page: focus the search field once it exists (FilterBar renders only
+  // after data has loaded). An effect, not autoFocus (jsx-a11y): this focus is user-requested.
+  // The request is one-shot, so StrictMode's second effect run finds nothing to do.
+  useEffect(() => {
+    if (!loading && takeSearchFocusRequest()) document.getElementById(SHOWS_SEARCH_ID)?.focus()
+  }, [loading])
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   // Latest unsaved filters, so unmount can flush a pending debounced save

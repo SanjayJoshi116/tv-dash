@@ -43,7 +43,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-// App owns its BrowserRouter — drive it through the History API
+// App owns its data router (created on mount from window.location) — drive it through the History API
 function renderAt(path: string) {
   window.history.pushState({}, '', path)
   return render(<App />)
@@ -109,6 +109,21 @@ describe('saved theme at the root', () => {
     localStorage.setItem(SETTINGS_KEY, raw)
     renderAt('/')
     expect(await selectedTheme(SYSTEM_THEME)).toBeTruthy()
+  })
+
+  it('?theme= overrides the saved theme for the visit and is not saved', async () => {
+    const saved = JSON.stringify({ themeName: 'Default Light' })
+    localStorage.setItem(SETTINGS_KEY, saved)
+    renderAt('/stats?theme=dracula')
+    expect(await selectedTheme('Dracula')).toBeTruthy()
+    expect(document.documentElement.style.colorScheme).toBe('dark')
+    expect(localStorage.getItem(SETTINGS_KEY)).toBe(saved)
+  })
+
+  it('an unknown ?theme= is ignored', async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ themeName: 'Nord' }))
+    renderAt('/?theme=Nope')
+    expect(await selectedTheme('Nord')).toBeTruthy()
   })
 
   it('choosing a theme updates the select, the document and tvdash-settings', async () => {

@@ -6,6 +6,7 @@ import type { Filters } from '../types/filters'
 import { uniqueGenres } from '../utils/derive'
 import { SECTION_GAP, SORT_OPTIONS, cardStyle, sortStatuses } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
+import { SHOWS_SEARCH_ID } from '../utils/searchFocus'
 
 const { Text } = Typography
 
@@ -36,7 +37,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
     <Row gutter={[16, 16]}>
       <Col xs={24} sm={8}>
         <Input.Search
-          id="shows-search"
+          id={SHOWS_SEARCH_ID}
           name="search"
           placeholder="Search by title, person, genre, keyword…"
           aria-label="Search shows"

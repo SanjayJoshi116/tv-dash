@@ -1,5 +1,5 @@
 TV Dashboard — Feature List
-Version 0.4.23
+Version 0.4.30
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
@@ -122,8 +122,31 @@ THEMES
 - Default Dark — indigo/purple on near-black
 - Default Light — indigo on white, Tailwind-600 chart palette, pure black text
 - Dracula — purple/pink on #282a36
+- High Contrast — white text and bright, saturated colors on black;
+  text ≥ 7:1, chart colors and borders ≥ 4.5:1 (low vision, bright rooms)
+- OLED Black — Default Dark's colors on true black (#000) surfaces
+- Nord — Polar Night surfaces with Frost / Aurora accents
+- Solarized Light — Solarized base3 background, accents darkened where
+  needed so every chart color stays readable
 - System (listed first, default when nothing is saved) — follows the OS
   prefers-color-scheme: Default Dark ↔ Default Light, switches live
+- Custom (listed last) — an accent color picker (hex input, the three
+  built-in primaries as presets) and a Dark / Light base switch appear
+  next to the selector; applies live. Surfaces / text / rating colors
+  come from Default Dark or Default Light, the accent drives buttons,
+  menu selection, progress bars, and 10 chart colors derived from it
+  (hue-rotated, lightened / darkened until ≥ 3:1 on the background —
+  even for very pale, grey, black or white accents)
+- Custom accent + base are saved separately: picking another theme and
+  coming back restores them; an invalid saved accent falls back to the
+  base theme's color; first paint already uses the Custom base
+- A Custom accent too pale / dark for the base is used in a readable
+  shade of the same hue for buttons, progress bars and highlights
+  (the picker still shows the exact color); on narrow phones the
+  picker and base switch sit in a "Customize" popover
+- Primary-button text is white or black, whichever is readable on the
+  theme's primary color (black on High Contrast / Dracula / Nord /
+  Solarized Light)
 - Theme choice (incl. System) persists across sessions via localStorage;
   an unknown saved value falls back to System
 - Theme choice syncs live across open dashboard tabs (no reload); a
@@ -133,6 +156,11 @@ THEMES
   scrollbars / autofill / form controls in dark themes
 - No flash on load: an inline boot script (generated from themes.ts at
   build time) applies the saved / OS theme colors before the app loads
+- ?theme=<name> in the URL (e.g. /stats?theme=Nord, ?theme=default+light)
+  opens that visit in the theme without saving it — case-insensitive,
+  unknown names ignored; stays while navigating inside the app and
+  isn't replaced by other tabs; picking a theme ends it (and saves);
+  already correct on first paint (screenshots, side-by-side compares)
 - All theme colors via Theme object — no hardcoded dark/light values
 - Every theme's chart colors and chart text meet WCAG AA contrast on its
   background (checked by a test)
@@ -185,6 +213,21 @@ CSV GENERATOR (series-search.py)
   unknown values written blank; appends follow the existing header
 
 ═══════════════════════════════════════
+KEYBOARD SHORTCUTS
+═══════════════════════════════════════
+- g then d / s / t: go to Dashboard / Shows / Statistics (second key
+  within 1 second), from any page incl. Show Detail
+- /: focus the Shows search field (goes to Shows first if needed; the
+  "/" isn't typed)
+- t: next theme in the selector's order (System → Default Dark →
+  Default Light → Dracula → High Contrast → OLED Black → Nord →
+  Solarized Light → Custom), saved like a selector change
+- ?: cheat-sheet dialog listing every shortcut; Escape closes it and
+  returns focus; other shortcuts are off while it's open
+- Never fire while typing in a field / select, or with Ctrl, ⌘ or Alt
+  held (browser shortcuts keep working)
+
+═══════════════════════════════════════
 SIDEBAR / MOBILE NAVIGATION
 ═══════════════════════════════════════
 Desktop (viewport ≥ lg breakpoint):
@@ -216,6 +259,10 @@ TECHNICAL
   synthetic CSV (npm run e2e, also in CI), Tk-driven check of
   series-search.py with TMDB faked (npm run test:gen, local)
 - Static SPA — no backend, no build-time data
+- Deployable at a domain root or under a sub-path (e.g. GitHub Pages at
+  /tv-dash/): `npm run build -- --base=/tv-dash/` — routes, the CSV, the
+  PWA manifest and service worker follow the base; `npm run build:pages`
+  also writes 404.html so deep links work on GitHub Pages
 - CSV fetched at runtime via fetch() + PapaParse
 - 100% React inline styles (no CSS files in src/)
 - All Ant Design styling via ConfigProvider tokens
@@ -270,7 +317,12 @@ TECHNICAL
 - ?reset on any URL clears saved settings (theme, filters, sidebar) before
   the app starts — first paint already uses the reset theme (no flash); the
   parameter is then removed, other params kept exactly as typed
-- RouteErrorBoundary + Suspense inside AppLayout: page crash or failed
-  lazy-chunk load shows ErrorState with reload; shell stays mounted
+- Data router (createBrowserRouter): a page crash or failed page-code load
+  shows ErrorState with Retry inside the layout (shell stays usable) and
+  clears on the next navigation
+- Navigating to a page whose code isn't loaded yet keeps the current page
+  on screen with a thin progress bar at the top of the content area (after
+  150ms, so fast navigations don't flash it; static under reduced motion);
+  only the very first load shows the spinner
 - Dev server binds 0.0.0.0 (vite.config server.host: true) — reachable
   from other devices on the same network, not just localhost
