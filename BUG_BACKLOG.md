@@ -2,7 +2,7 @@
 
 ## Open
 
-Found during the 0.4.14 ideas pass (not fixed yet — each has a matching `IDEAS.md` entry).
+Found during the 0.4.14 ideas pass and the Entry / root OpenSpec proposals (not fixed yet — each points to its `IDEAS.md` entry or planned OpenSpec change). Contrast ratios are WCAG relative-luminance values against the theme's `contentBg` unless stated.
 
 - [ ] `ShowDetailPage` / `completionRate` — completion above 100% when `Episodes Watched` > `Total Episodes` (TMDB count changed after saving). **Confirmed in the real CSV:** Farming Life in Another World 24 / 13 → "185%", Spartacus: Gods of the Arena 6 / 1 → "600%". Decide the rule once (IDEAS → Utils `progressState`, soft data-quality warnings) and clamp the display
 - [ ] `StatCard` — tint built as `${color}40` / `${color}22` breaks on non-6-digit colors. **Real path:** Avg Rating falls back to `theme.chartText` (`#ccc` in Default Dark) when no show is rated → `#ccc40` is invalid, border/badge background dropped (IDEAS → Components "Robust tint colors")
@@ -13,6 +13,38 @@ Found during the 0.4.14 ideas pass (not fixed yet — each has a matching `IDEAS
 - [ ] `useTvData` — `HTTP 404: ` with a trailing colon when `statusText` is empty (HTTP/2); timeout message blames a missing file, which actually fails fast (IDEAS → Hooks P2)
 - [ ] `useTvData` — **verify:** on SPA hosts (and possibly Vite dev) a missing `/tv_series.csv` returns `200` + `index.html`, reported as a confusing "missing columns" error (IDEAS → Hooks P1)
 - [ ] CI — `node-version: 20` is past end-of-life (April 2026); the CLAUDE.md lock-file rule assumes it (IDEAS → Outside `src/` P1)
+- [ ] Rating badges (`ShowCard`, Show Detail) — white text on tier fills: 2.27:1 on green `#52c41a`, 1.9:1 on amber `#faad14` (WCAG AA needs 4.5:1) — unreadable in every theme. Fix planned in OpenSpec change `add-semantic-theme-colors` (per-theme text-on-fill color)
+- [ ] Default Light — rating / completion tier colors as text or strokes on `#f5f5f7`: green 2.08:1, amber 1.75:1 (red 3.75:1). Fix planned in `add-semantic-theme-colors` (darker Light tiers, e.g. `#237804` / `#ad6800` / `#cf1322`)
+- [ ] `index.html` — favicon `<link rel="icon" href="/tv.svg">` points at a file that doesn't exist (`public/` holds only the gitignored CSV; `tv.svg` was never committed), so every tab shows the browser's default icon. Add the SVG (the 📺 used in the sidebar) or drop the link. Found 2026-11-25 while checking `.gitignore`
+
+## Fixed in 0.4.19 (2026-11-25)
+
+- [x] Mixed-case URL (`/Stats`) → right page, but "Page not found" title + no nav highlight (`normalizePath` lowercases)
+- [x] `RootErrorBoundary` / `RouteErrorBoundary` — `throw undefined` / `throw null` re-rendered the crashing tree → blank page; `String(error)` could throw on a null-prototype object (`hasError` + `errorMessage()`)
+- [x] `?reset` — boot script painted the saved theme first, then React switched to System (flash); boot script now skips the saved theme with `reset`
+- [x] `consumeResetParam` — `URLSearchParams.delete` rewrote the other params (`debug` → `debug=`, `%20` → `+`); now raw segments
+- [x] `AnimatedPie` — turning reduced motion off while Statistics was open hid both legends for the replayed animation (latched)
+- [x] `pageTitleFor` — blank show Name → empty header / ` · TV Dashboard` tab (`Untitled show`)
+- [x] Theme boot script injected before `<meta charset>` (`head-prepend` → `head`)
+- [x] `findShow` — `/shows/0x1`, `/shows/1e0`, `/shows/01` resolved to show 1 (`Number()` quirks; pre-existing) — canonical ids only
+- [x] Default Light — chart colors below the 3:1 for graphics on `#f5f5f7`: lime `#65a30d` 2.84:1 → `#4d7c0f` (4.59:1), and amber `#d97706` 2.93:1 → `#b45309` (4.61:1) — the second one was missed by the ideas pass and caught by the new theme contract test (`themes.test.ts`, OpenSpec `refactor-typed-theme-provider`)
+
+## Fixed in 0.4.17 (2026-11-25)
+
+- [x] Accessibility — the OS "reduce motion" setting was ignored: every chart replayed its entry animation on each tab switch, the pie legend faded in, antd components animated and the mobile bottom nav slid on every scroll-direction change. All off under reduced motion now; the pie legend no longer waits for `onAnimationEnd` (which never fires without animation) (`respect-reduced-motion`)
+
+## Fixed in 0.4.16 (2026-11-25)
+
+- [x] App shell — a render error outside a page (`ThemeProvider` / `ConfigProvider` / `TvDataProvider` / router / `AppLayout`) left a blank white page with no way out, and bad saved settings survived a reload. Now `RootErrorBoundary` shows a recovery screen (Reload / Reset saved settings) and `?reset` clears settings before the app starts (`add-root-error-safety-net`)
+
+## Fixed in 0.4.15 (2026-11-25)
+
+- [x] Theme — Light / Dracula users saw a dark or white flash before React mounted (`index.html` had no background); now an inline boot script generated from `themes.ts` paints the theme first (`add-system-theme-and-color-scheme`)
+- [x] Theme — scrollbars (`Content` is the scroll container), autofill and native controls stayed light in the dark themes; `<html>` now gets the theme's `color-scheme` + background
+- [x] Theme — first visit always landed on Default Dark regardless of the OS setting; new default is System (follows `prefers-color-scheme`)
+- [x] Show Detail header said `Show Detail` instead of the show name, and every tab / history entry was just `TV Dashboard` (`add-route-document-titles`)
+- [x] `e2e/dashboard.spec.ts` — Highlights navigation test flaky (~1 in 3): `toHaveURL` passed before the lazy Show Detail page committed, so `goBack()` raced the pending render, which then stole focus from the next card. Now waits for the page title too
+- [x] `main.tsx` — missing `#root` gave React's opaque `Target container is not a DOM element` (`tidy-root-entry`)
 
 ## Fixed in 0.4.13 (2026-11-24)
 

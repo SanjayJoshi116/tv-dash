@@ -1,6 +1,13 @@
 import type { NameCount, NameValue, TvSeries } from '../types/series'
 import { lookup } from './lookup'
 
+// The show a `/shows/:id` param points at — one lookup for Show Detail and the page title.
+// Canonical ids only (TV IDs are positive integers): `0x1`, `1e0`, `01`, ` 1` are not show 1.
+export function findShow(data: TvSeries[], id: string | undefined): TvSeries | undefined {
+  if (id == null || !/^[1-9]\d*$/.test(id)) return undefined
+  return data.find(s => s.tvId === Number(id))
+}
+
 // CSV rows have no timestamp field — last row = most recently watched.
 export function recentFirst(data: TvSeries[]): TvSeries[] {
   return [...data].reverse()

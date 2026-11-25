@@ -9,7 +9,6 @@ export default mergeConfig(
     test: {
       environment: 'node',
       globals: true,
-      setupFiles: ['./src/setupTests.ts'],
       // Unit tests only — e2e/*.spec.ts belongs to Playwright (`npm run e2e`)
       include: ['src/**/*.test.{ts,tsx}'],
     },

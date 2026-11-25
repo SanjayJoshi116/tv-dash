@@ -1,5 +1,86 @@
 # Changelog
 
+## [0.4.19] — 2026-11-25
+
+OpenSpec change `refactor-typed-theme-provider` implemented and archived (`openspec/changes/archive/2026-11-25-refactor-typed-theme-provider`; no spec delta — refactor + tests). 10 changes still open.
+
+### Changed
+
+- **Default Light chart colors** (only visible change): two of the 10 failed WCAG 3:1 against the `#f5f5f7` background — amber `#d97706` (2.93:1) → `#b45309` (4.61:1), lime `#65a30d` (2.84:1) → `#4d7c0f` (4.59:1). Same hue families, same palette slots, so no chart changes which color it uses
+- **Typed theme names:** `ThemeName` union from the theme table (`THEME_DEFS as const satisfies …`), `THEMES: Record<ThemeName, Theme>` with `name` taken from the key, `isThemeName()` type guard, `ThemePreference = ThemeName | 'System'`
+- **`AppThemeProvider`** (`ThemeContext.tsx`) owns the theme preference, persistence, System resolution, document color-scheme sync and antd `ConfigProvider`; `App` is now just providers + routes. `ThemeToggle` reads/sets the theme via `useThemeSetting()` — `AppLayout` no longer drills `themePreference` / `onThemeChange`
+
+### Added
+
+- **Theme contract test** (`themes.test.ts`): every theme has all fields as valid colors, exactly 10 distinct chart colors, `chartText` ≥ 4.5:1 and each chart color ≥ 3:1 vs `contentBg`; `isThemeName` tests
+- Root smoke test: switching theme in `#theme-select` updates the select, `color-scheme` and `tvdash-settings`
+- Tests for every fix below: 174 unit, 46 e2e (`?reset` first paint, `/Stats` title)
+
+### Fixed (code review of 0.4.15–0.4.19)
+
+- **Mixed-case URLs** (`/Stats`, `/SHOWS`) rendered the right page but were titled "Page not found" with no nav item highlighted — `normalizePath()` now lowercases too (react-router matches case-insensitively)
+- **Root / route error boundaries** showed a blank page on a falsy throw (`throw undefined`): they now track `hasError`, and `errorMessage()` formats any thrown value without throwing itself
+- **`?reset` flashed the old theme**: the boot script now ignores the saved theme when the URL has `reset`, so first paint already matches the post-reset System theme
+- **`?reset` rewrote other params** (`?debug` → `?debug=`, `%20` → `+`): removal now works on raw query segments
+- **Pie legends vanished** for the replayed animation when reduced motion was switched off on Statistics — latched visible
+- **Blank show name** gave an empty header and a ` · TV Dashboard` tab — now `Untitled show`
+- **Boot script before `<meta charset>`** (`head-prepend`) — now injected after it (`head`), so more themes can't push the charset past the first 1024 bytes
+- **Non-canonical show URLs** (`/shows/0x1`, `/shows/1e0`, `/shows/01`) opened show 1 — `findShow` accepts canonical ids only (pre-existing)
+
+## [0.4.18] — 2026-11-25
+
+Tests only — no app code changed. OpenSpec change `add-root-smoke-test` implemented and archived (`openspec/changes/archive/2026-11-25-add-root-smoke-test`; no spec delta). 11 changes still open.
+
+### Added
+
+- **Root smoke test** (OpenSpec `add-root-smoke-test`, tests only): `src/App.test.tsx` renders the real `<App />` in jsdom and checks every route mounts its page, plus the saved-theme fallback (valid / unknown / non-string / non-JSON). 11 cases → 123 unit tests. Adds ~20–40s to `npm test` depending on machine load (antd + Recharts import in jsdom; the other unit tests take ~11s); page modules preloaded in `beforeAll` so the first test can't time out on a cold transform; accepted as the safety net before the root refactors (typed themes, semantic colors, cross-tab sync, data router)
+
+## [0.4.17] — 2026-11-25
+
+OpenSpec change `respect-reduced-motion` implemented and archived (`openspec/changes/archive/2026-11-25-respect-reduced-motion`); new main spec `openspec/specs/motion-preferences`. 12 changes still open.
+
+### Added
+
+- **Reduced motion** (OpenSpec `respect-reduced-motion`): with the OS "reduce motion" setting on (followed live), no chart entry animations (all 13 Recharts series on Statistics + the Dashboard ratings chart), no pie-legend fade (legend shown at once — it used to wait for `onAnimationEnd`, which never fires without animation), no Ant Design motion (`token.motion`), and the mobile bottom nav hides/shows without sliding. Unchanged without the preference
+- `usePrefersReducedMotion()` hook (on `useMediaQuery`)
+- Tests: `usePrefersReducedMotion.test.ts` (112 unit tests), `e2e/reduced-motion.spec.ts` (4 cases; legend opacity sampled every frame)
+
+## [0.4.16] — 2026-11-25
+
+OpenSpec change `add-root-error-safety-net` implemented and archived (`openspec/changes/archive/2026-11-25-add-root-error-safety-net`); new main spec `openspec/specs/app-recovery`. 13 changes still open.
+
+### Added
+
+- **Root safety net** (OpenSpec `add-root-error-safety-net`): `RootErrorBoundary` wraps `<App />` in `main.tsx`. A render error in the shell (providers, router, `AppLayout`) now shows a plain recovery screen — error message as text, **Reload**, **Reset saved settings** — instead of a blank page. No antd / theme dependency (CSS system colors, `color-scheme: light dark`). Page errors still use the in-layout `RouteErrorBoundary`
+- **`?reset` escape hatch:** `consumeResetParam()` runs before `createRoot`, clears saved settings and removes only `reset` from the URL (`replaceState`)
+- `settings.ts`: `resetSettings()` (removes `tvdash-settings` + `tvdash-sidebar`, never `localStorage.clear()`) and `SIDEBAR_KEY` (`AppLayout` imports it instead of the literal)
+- e2e fixture option `allowConsoleErrors` (one `RegExp`) for errors a spec provokes on purpose
+- Tests: `src/utils/settings.test.ts`, `src/components/RootErrorBoundary.test.tsx` (111 unit tests), `e2e/recovery.spec.ts` (5 cases, crashes forced by serving a throwing module)
+
+## [0.4.15] — 2026-11-25
+
+First OpenSpec changes implemented and archived (`add-system-theme-and-color-scheme`, `add-route-document-titles`, `tidy-root-entry`). Main specs now exist under `openspec/specs/` (`theming`, `page-titles`).
+
+### Added
+
+- **System theme** (OpenSpec `add-system-theme-and-color-scheme`): new first option in the theme selector that follows the OS `prefers-color-scheme` (Default Dark ↔ Default Light) and switches live. It's the default when no theme is saved or the saved value is invalid; an explicitly saved theme is still honored
+- **Native color scheme:** `<html>` gets the active theme's `color-scheme` and `contentBg` background, so the `Content` scrollbar, autofill and native controls are dark in dark themes
+- **No flash on load:** `vite.config.ts` injects an inline `<head>` boot script generated from `THEMES` that applies the saved / OS-resolved color scheme + background before the bundle runs (storage errors fall back to the OS setting)
+- **Route titles** (OpenSpec `add-route-document-titles`): browser tab title follows the route — `Dashboard · TV Dashboard`, `Shows · …`, `Statistics · …`, `<show name> · …` on Show Detail, `Page not found · …` for unknown URLs. The header shows the series name on Show Detail (`Show Detail` while loading, `Show not found` for an unknown ID). One `pageTitleFor()` feeds header and tab, so they can't disagree. Tests: `src/utils/pageTitle.test.ts`, `src/hooks/useDocumentTitle.test.ts` (100 unit tests), `e2e/titles.spec.ts` (10 cases)
+- Tests: `src/themes.test.ts`, `src/hooks/useMediaQuery.test.ts` (91 unit tests), `e2e/theme.spec.ts` (8 cases)
+
+### Changed
+
+- **Test setup:** removed the global `src/setupTests.ts` (it loaded `@testing-library/jest-dom` into every Vitest run while the default environment is `node`, and no test used a jest-dom matcher). Dropped the `@testing-library/jest-dom` devDependency; a jsdom test that needs DOM matchers imports `@testing-library/jest-dom/vitest` itself (OpenSpec `tidy-root-entry`)
+- **e2e:** `dashboard.spec.ts` Highlights navigation waits for the destination page title, not just the URL — the URL changes before the lazy Show Detail page commits, so `goBack()` could race the pending render, which then took focus from the next card (flaky ~1 in 3 once tab titles changed the timing)
+- **Mount error:** `main.tsx` throws `#root element missing in index.html` instead of React's opaque "Target container is not a DOM element" when `#root` is missing
+
+### OpenSpec proposals
+
+- 6 more changes proposed for Entry / root P3: `add-global-keyboard-shortcuts`, `add-custom-accent-theme`, `add-more-builtin-themes`, `add-url-theme-override`, `support-subpath-hosting`, `tidy-root-entry`
+- Archived (`openspec/changes/archive/2026-11-25-*`): `tidy-root-entry`, `add-system-theme-and-color-scheme`, `add-route-document-titles` — all three applied above. 14 changes still open
+- `.gitignore`: `vite.config.*.timestamp-*` (Vite's temporary config bundle — `vite.config.ts` now imports `src/themes.ts`)
+
 ## [0.4.14] — 2026-11-24
 
 Docs only — no app or generator code changed.
@@ -12,7 +93,11 @@ Docs only — no app or generator code changed.
 
 ### Bug backlog (`BUG_BACKLOG.md`)
 
-- 9 open items found while exploring, each cross-referenced to its IDEAS entry — 2 confirmed against the real CSV (completion above 100% on Show Detail, Crime shows with grey genre tags), 1 against the themes (`StatCard` tint on a 3-digit hex), 1 to verify (missing CSV served as `index.html`)
+- 12 open items found while exploring, each cross-referenced to its IDEAS entry — 2 confirmed against the real CSV (completion above 100% on Show Detail, Crime shows with grey genre tags), 1 against the themes (`StatCard` tint on a 3-digit hex), 3 measured contrast failures (white text on rating badges 1.9–2.27:1 in every theme, Default Light tier colors 1.75–2.08:1, Default Light chart color `#65a30d` 2.84:1), 1 to verify (missing CSV served as `index.html`)
+
+### OpenSpec proposals
+
+- 11 changes proposed for Entry / root (`openspec/changes/`): P1 — `add-system-theme-and-color-scheme`, `add-route-document-titles`, `add-root-error-safety-net`, `respect-reduced-motion`; P2 — `add-root-smoke-test`, `refactor-typed-theme-provider`, `add-semantic-theme-colors`, `sync-settings-across-tabs`, `smarter-route-prefetch`, `add-pwa-offline`, `spike-data-router`. Not implemented yet
 
 ### Docs
 

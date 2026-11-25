@@ -11,6 +11,8 @@ coverage/
 # (vite and vitest would load a leftover vite.config.js instead of vite.config.ts)
 vite.config.js
 vite.config.d.ts
+# Vite's temporary bundled config (left behind if the process dies while loading vite.config.ts)
+vite.config.*.timestamp-*
 .vite/
 .env
 .env.local

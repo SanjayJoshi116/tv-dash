@@ -2,7 +2,7 @@
 
 Improvement ideas per module (top), then the finished review tracker (bottom). Bugs live in [BUG_BACKLOG.md](BUG_BACKLOG.md) — the 9 bug-like findings from the ideas pass are listed there too, each pointing back to its idea here.
 
-_Last updated 2026-11-24 (v0.4.14 — improvement ideas added for every module, deduplicated)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 80 unit, 17 e2e (Playwright, CI), 37 generator checks (`npm run test:gen`, local).
+_Last updated 2026-11-25 (v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 174 unit, 46 e2e (Playwright, CI), 37 generator checks (`npm run test:gen`, local).
 
 ## Open follow-ups
 
@@ -16,22 +16,12 @@ New-feature / out-of-the-box ideas per module (not bugs). P1 = high value, low c
 Scope: `main.tsx`, `App.tsx`, `ThemeContext.tsx`, `themes.ts`, `setupTests.ts`.
 
 #### P1
-- **Native `color-scheme` per theme** — set `document.documentElement.style.colorScheme` (and `<html>` background) from `activeTheme.isDark` in `App`. Today scrollbars, autofill and native form controls stay light inside the dark themes (very visible on Windows, where `Content` is the scroll container).
-- **"System" theme option** — first visit always lands on Default Dark. Add a `System` entry that follows `prefers-color-scheme` (Default Dark ↔ Default Light) and listens for changes via `matchMedia(...).addEventListener('change')`; make it the default when nothing is saved.
-- **No flash on load** — `index.html` has no background, so Light/Dracula users see a dark→theme (or white→dark) flash before React mounts. A tiny inline script that reads `tvdash-settings.themeName` and sets `html` background/`color-scheme` before the bundle runs. (Touches the "one CSS rule in index.html" convention — would need a documented exception.)
-- **Per-route `document.title`** — tab always says "TV Dashboard". Use the same title lookup as the header (`Dashboard · TV Dashboard`, `<show name> · TV Dashboard` on Show Detail) so browser history, bookmarks and tab switching are readable.
-- **Root safety net + settings reset** — `RouteErrorBoundary` sits inside `AppLayout`; a crash in `ThemeProvider`/`ConfigProvider`/`TvDataProvider`/`AppLayout` itself is a blank white page. Add a top-level boundary in `main.tsx` with a plain (no antd) fallback: "Reload" + "Reset saved settings" (clears `tvdash-settings` / `tvdash-sidebar` via `settings.ts`). Also support `?reset` in the URL as an escape hatch.
-- **Respect `prefers-reduced-motion`** — nothing in `src/` checks it. One root hook → antd `ConfigProvider` `token.motion: false`, Recharts `isAnimationActive={false}` (via theme or a small context), no `BottomNav` slide transition.
 
 #### P2
-- **Strongly typed theme names** — `THEMES: Record<string, Theme>` lets any string index it and duplicates `name` (key + field). Use `as const satisfies Record<ThemeName, Omit<Theme,'name'>>` with `ThemeName` derived from the keys; `loadThemeName` returns `ThemeName`, `ThemeToggle` options become exhaustive, and `THEMES[x] ?? fallback` stops being needed.
 - **Semantic theme tokens** — rating/completion/status colors are fixed hexes in `constants/ui.ts`, so Dracula shows stock green/amber/red next to its own palette. Add `success` / `warning` / `danger` (and maybe `star`) to `Theme`; `tierColor` reads them. Same pass: derive `areaFill` = `token.colorPrimary` (always equal today).
-- **Theme contract test** (`themes.test.ts`) — every theme has exactly 10 distinct `chartColors`, all required fields, and WCAG contrast ≥ 4.5 for `chartText` on `contentBg` / ≥ 3 for each chart color on `contentBg`. Catches a bad new theme before it ships.
 - **Cross-tab sync** — listen to the `storage` event for `tvdash-settings`; theme (and saved filters) changed in one tab apply in the others. Fits naturally inside `settings.ts` as a `subscribeSettings()` helper.
-- **Extract `AppThemeProvider`** — move theme state, persistence, `configTheme` memo, color-scheme effect and system-theme listener out of `App` into one provider (`ThemeContext.tsx` already exists). `App` becomes just provider stack + routes, and `ThemeToggle` can read/set the theme from context instead of prop-drilling `activeThemeName` / `onThemeChange` through `AppLayout`.
 - **Smarter prefetch** — idle prefetch loads every page chunk unconditionally. Skip it when `navigator.connection?.saveData` or `effectiveType` is `2g`; optionally prefetch on nav hover/focus instead (`PAGE_LOADERS` is already in place), and have `ShowCard` hover/focus prefetch the Show Detail chunk so the first open has no Suspense flash.
 - **Data router (`createBrowserRouter`)** — on react-router v7: route-level `lazy`, `errorElement` (could replace parts of `RouteErrorBoundary`'s manual pathname reset), `useNavigation()` for a top progress bar while a chunk loads. Spike first — `Content` (not window) is the scroll container, so built-in `ScrollRestoration` won't help directly.
-- **Root smoke test** — render `<App />` in jsdom with a mocked `fetch` and `MemoryRouter`-equivalent, assert each route mounts and that a corrupt `tvdash-settings.themeName` falls back to Default Dark. Root files currently have zero unit coverage (only e2e).
 - **Installable PWA / offline** — the app is static and already mobile-first (bottom nav). `vite-plugin-pwa` + manifest + service worker caching chunks and `tv_series.csv` (network-first) → home-screen icon, works offline. `<meta name="theme-color">` from the active theme comes with it.
 
 #### P3
@@ -40,8 +30,8 @@ Scope: `main.tsx`, `App.tsx`, `ThemeContext.tsx`, `themes.ts`, `setupTests.ts`.
 - **More built-in themes** — high-contrast (a11y), Solarized, Nord, OLED black. Cheap once the theme contract test exists.
 - **URL theme override** — `?theme=Dracula` (not persisted) for screenshots / README images and e2e theme coverage.
 - **Base path from `import.meta.env.BASE_URL`** — `BrowserRouter basename` + CSV fetch via `new URL('tv_series.csv', import.meta.env.BASE_URL)` (path in one exported constant shared with e2e route interception) so the build can be hosted under a sub-path (GitHub Pages) without code edits; add a 404.html SPA fallback note.
-- **`setupTests.ts` cleanup** — it loads `@testing-library/jest-dom` for every test while the default environment is `node`; move it to the jsdom tests only (or drop it if no matcher uses it).
-- **Clear mount error** — replace `document.getElementById('root')!` with an explicit check that throws `"#root element missing in index.html"`.
+- ~~**`setupTests.ts` cleanup** — it loads `@testing-library/jest-dom` for every test while the default environment is `node`; move it to the jsdom tests only (or drop it if no matcher uses it).~~ ✅ Unreleased (`tidy-root-entry`): file + dependency dropped; jsdom tests import `@testing-library/jest-dom/vitest` themselves.
+- ~~**Clear mount error** — replace `document.getElementById('root')!` with an explicit check that throws `"#root element missing in index.html"`.~~ ✅ Unreleased (`tidy-root-entry`).
 
 ### Pages (`src/pages/`)
 Scope: `DashboardPage.tsx`, `ShowsPage.tsx`, `ShowDetailPage.tsx`, `StatisticsPage.tsx`, `NotFoundPage.tsx`.
@@ -86,7 +76,6 @@ Scope: `AppLayout`, `BottomNav`, `ChartsSection`, `CsvWarningBanner`, `ErrorStat
 - **Cards are real links** — `ShowCard` (and Dashboard's `ShowRowCard`) are `role="button"` + `navigate()`, so middle-click / Ctrl-click / "open in new tab" / "copy link" don't work. Wrap in react-router `<Link to={`/shows/${tvId}`}>` (internal route + validated integer — not a CSV-built `href`, so the security rule holds) and drop `activateOnKey` for these: links already handle Enter.
 - **Progress on `ShowCard`** — the card says "12 eps watched" with no total. A 3px progress strip along the poster's bottom edge (`completionColor`) plus a "✓ Completed" corner mark makes the grid readable at a glance.
 - **Clickable chart marks** — "Rating vs Popularity" dots and "Top 10 by Watch Time" bars are individual shows: `onClick` → `/shows/:id`, `cursor: pointer`, tooltip hint "click to open".
-- **Show name in the header** — `AppLayout` already reads the context (for `warnings`); on `/shows/:id` it can show the series name instead of the generic "Show Detail" (fallback to "Show Detail" while loading / not found).
 - **`CsvWarningBanner` lists everything** — after 3 rows it says "see browser console", which non-dev users never open. Expand in place ("Show all 12") inside a max-height scroll box, plus a "Copy" button for pasting into a bug report.
 - **Self-healing stale chunk** — `RouteErrorBoundary` notes stale hashed chunks after a deploy but only offers Retry. Detect the dynamic-import failure (`Failed to fetch dynamically imported module` / `ChunkLoadError`) and reload once automatically (sessionStorage guard against loops); add a "Go to Dashboard" button next to Retry for real render errors.
 - **No spinner flash** — `LoadingState` shows instantly; the CSV usually loads in < 200ms, so users see a spinner blink. `Spin delay={200}` (one prop).
@@ -296,6 +285,32 @@ Finished work, kept for history. ✅ done · 🟡 in progress · ⬜ not started
 5. ~~`series-search.py` off the main thread + `App` class~~ — ✅ v0.4.13: `TmdbClient` / `CsvStore` / `App`, workers + polled result queue, API key redacted from errors, importable (`npm run test:gen` imports it).
 6. ~~v0.4.11 simplify skips~~ — ✅ v0.4.13: `ratingColor(null)` + `formatRating`, exported `STATUSES` (derived maps removed), `StatCard` `formatter` on Show Detail, `BottomNav` component, `STAR_COLOR` (kept gold, by choice).
 7. ~~Optional cleanups~~ — ✅ v0.4.13: CSV `N/A` → `''` (114 cells, backup `public/tv_series.csv.bak`), `status: KnownStatus | (string & {})`, `tsc -b` build.
+
+### Shipped improvement ideas
+
+#### Entry / root — ✅ v0.4.15 (OpenSpec `add-system-theme-and-color-scheme`)
+- ~~**Native `color-scheme` per theme**~~ ✅ — set `document.documentElement.style.colorScheme` (and `<html>` background) from `activeTheme.isDark` in `App`. Today scrollbars, autofill and native form controls stay light inside the dark themes (very visible on Windows, where `Content` is the scroll container).
+- ~~**"System" theme option**~~ ✅ — first visit always lands on Default Dark. Add a `System` entry that follows `prefers-color-scheme` (Default Dark ↔ Default Light) and listens for changes via `matchMedia(...).addEventListener('change')`; make it the default when nothing is saved.
+- ~~**No flash on load**~~ ✅ — `index.html` has no background, so Light/Dracula users see a dark→theme (or white→dark) flash before React mounts. A tiny inline script that reads `tvdash-settings.themeName` and sets `html` background/`color-scheme` before the bundle runs. (Touches the "one CSS rule in index.html" convention — would need a documented exception.)
+
+#### Entry / root + Components — ✅ v0.4.15 (OpenSpec `add-route-document-titles`)
+- ~~**Per-route `document.title`**~~ ✅ — tab always says "TV Dashboard". Use the same title lookup as the header (`Dashboard · TV Dashboard`, `<show name> · TV Dashboard` on Show Detail) so browser history, bookmarks and tab switching are readable.
+- ~~**Show name in the header**~~ ✅ — `AppLayout` already reads the context (for `warnings`); on `/shows/:id` it can show the series name instead of the generic "Show Detail" (fallback to "Show Detail" while loading / not found).
+
+#### Entry / root — ✅ v0.4.16 (OpenSpec `add-root-error-safety-net`)
+- ~~**Root safety net + settings reset**~~ ✅ — `RouteErrorBoundary` sits inside `AppLayout`; a crash in `ThemeProvider`/`ConfigProvider`/`TvDataProvider`/`AppLayout` itself is a blank white page. Add a top-level boundary in `main.tsx` with a plain (no antd) fallback: "Reload" + "Reset saved settings" (clears `tvdash-settings` / `tvdash-sidebar` via `settings.ts`). Also support `?reset` in the URL as an escape hatch.
+
+#### Entry / root — ✅ v0.4.17 (OpenSpec `respect-reduced-motion`)
+- ~~**Respect `prefers-reduced-motion`**~~ ✅ — nothing in `src/` checks it. One root hook → antd `ConfigProvider` `token.motion: false`, Recharts `isAnimationActive={false}` (via theme or a small context), no `BottomNav` slide transition.
+
+#### Entry / root — ✅ v0.4.18 (OpenSpec `add-root-smoke-test`)
+- ~~**Root smoke test**~~ ✅ — render `<App />` in jsdom with a mocked `fetch` and `MemoryRouter`-equivalent, assert each route mounts and that a corrupt `tvdash-settings.themeName` falls back to System. Root files currently have zero unit coverage (only e2e).
+
+#### Entry / root — ✅ v0.4.19 (OpenSpec `refactor-typed-theme-provider`)
+- ~~**Strongly typed theme names**~~ ✅ — `THEMES: Record<string, Theme>` lets any string index it and duplicates `name` (key + field). Use `as const satisfies Record<ThemeName, Omit<Theme,'name'>>` with `ThemeName` derived from the keys; `loadThemeName` returns `ThemeName`, `ThemeToggle` options become exhaustive, and `THEMES[x] ?? fallback` stops being needed.
+- ~~**Theme contract test** (`themes.test.ts`)~~ ✅ — every theme has exactly 10 distinct `chartColors`, all required fields, and WCAG contrast ≥ 4.5 for `chartText` on `contentBg` / ≥ 3 for each chart color on `contentBg`. Catches a bad new theme before it ships.
+- ~~**Extract `AppThemeProvider`**~~ ✅ — move theme state, persistence, `configTheme` memo, color-scheme effect and system-theme listener out of `App` into one provider (`ThemeContext.tsx` already exists). `App` becomes just provider stack + routes, and `ThemeToggle` can read/set the theme from context instead of prop-drilling `activeThemeName` / `onThemeChange` through `AppLayout`.
+  - Contract test found **two** failing Default Light chart colors (not one): `#d97706` 2.93:1 → `#b45309`, `#65a30d` 2.84:1 → `#4d7c0f`.
 
 ### Module review tracker
 

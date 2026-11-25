@@ -17,7 +17,7 @@ const PAGE_SIZE_OPTIONS = [12, 24, 48, 96]
 
 const SORT_KEYS: readonly SortKey[] = SORT_OPTIONS.map(o => o.value)
 
-// Type-check each stored field — a corrupt value falls back to its default (mirrors App's loadThemeName).
+// Type-check each stored field — a corrupt value falls back to its default (mirrors themes.ts parseThemePreference).
 // Values absent from the current data (removed genre/status) are dropped in ShowsPage once data loads.
 function loadFilters(): Filters {
   const raw = getSettings().filters

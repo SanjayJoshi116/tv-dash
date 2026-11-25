@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Typography, theme as antTheme } from 'antd'
 import { useTheme } from '../ThemeContext'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 const { Text } = Typography
 
@@ -20,6 +21,7 @@ interface Props {
 // shell. AppLayout mounts it only while `broken`, so entering mobile always starts visible.
 export function BottomNav({ items, selectedKey, pathname, scrollRef, onNavigate }: Props) {
   const theme = useTheme()
+  const reducedMotion = usePrefersReducedMotion()
   const { token } = antTheme.useToken()
   const [visible, setVisible] = useState(true)
   const lastScrollY = useRef(0)
@@ -75,7 +77,8 @@ export function BottomNav({ items, selectedKey, pathname, scrollRef, onNavigate 
       borderTop: `1px solid ${theme.borderColor}`,
       zIndex: 1000,
       transform: visible ? 'translateY(0)' : 'translateY(100%)',
-      transition: 'transform 0.25s ease',
+      // Reduced motion: still hides/shows, just without the slide
+      transition: reducedMotion ? 'none' : 'transform 0.25s ease',
     }}>
       {items.map(item => {
         const active = item.key === selectedKey

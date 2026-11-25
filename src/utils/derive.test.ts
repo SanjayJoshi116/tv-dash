@@ -5,6 +5,7 @@ import {
   compareDescNullsLast,
   completionByGenre,
   completionRate,
+  findShow,
   formatRating,
   formatRuntime,
   truncate,
@@ -56,6 +57,22 @@ function makeSeries(overrides: Partial<TvSeries> = {}): TvSeries {
     ...overrides,
   }
 }
+
+describe('findShow', () => {
+  const data = [makeSeries({ tvId: 1, name: 'One' }), makeSeries({ tvId: 12, name: 'Twelve' })]
+
+  it('finds by canonical id', () => {
+    expect(findShow(data, '1')?.name).toBe('One')
+    expect(findShow(data, '12')?.name).toBe('Twelve')
+  })
+
+  it('rejects non-canonical spellings and missing ids', () => {
+    for (const id of ['0x1', '1e0', '1.0', '01', ' 1', '1 ', '+1', '', '0', '-1', undefined]) {
+      expect(findShow(data, id), String(id)).toBeUndefined()
+    }
+    expect(findShow(data, '99')).toBeUndefined()
+  })
+})
 
 describe('totalHoursWatched', () => {
   it('sums runtime and converts to hours', () => {

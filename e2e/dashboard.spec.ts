@@ -31,18 +31,25 @@ test.describe('Dashboard highlights', () => {
 
   test('navigate on click, Enter and Space', async ({ page }) => {
     await page.goto('/')
+    // The URL changes before the lazy page commits (transition) — wait for the page title too,
+    // or goBack() races the pending Show Detail render, which then steals focus from the card
     await page.getByRole('button', { name: 'Top Rated: Huge' }).click()
     await expect(page).toHaveURL(/\/shows\/4$/)
+    await expect(page).toHaveTitle(/^Huge · /)
 
     await page.goBack() // SPA history — no app reload / CSV re-fetch
+    await expect(page).toHaveTitle(/^Dashboard · /)
     await page.getByRole('button', { name: 'Most Watched: Newbie' }).focus()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/shows\/5$/)
+    await expect(page).toHaveTitle(/^Newbie · /)
 
     await page.goBack()
+    await expect(page).toHaveTitle(/^Dashboard · /)
     await page.getByRole('button', { name: 'Newest Release: Newbie' }).focus()
     await page.keyboard.press(' ')
     await expect(page).toHaveURL(/\/shows\/5$/)
+    await expect(page).toHaveTitle(/^Newbie · /)
   })
 })
 

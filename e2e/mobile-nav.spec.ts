@@ -1,11 +1,9 @@
 import type { Page } from '@playwright/test'
-import { test, expect, content, spaNavigate } from './fixtures'
+import { test, expect, bottomNav as nav, content, scrollContent, spaNavigate } from './fixtures'
 
 // BottomNav (below lg): hides on scroll-down, reappears on scroll-up / near the top / after navigating.
 // /stats is the tallest page with the 5-show TEST_CSV, so it's the one that can scroll.
 const MOBILE = { width: 390, height: 844 }
-const nav = (page: Page) => page.locator('nav').filter({ has: page.getByRole('button', { name: 'Dashboard' }) })
-const scrollContent = (page: Page, y: number) => content(page).evaluate((el, top) => el.scrollTo(0, top), y)
 // Hidden = slid below the viewport (translateY(100%)); waits through the CSS transition
 const expectShown = (page: Page) => expect(nav(page)).toBeInViewport()
 const expectHidden = (page: Page) => expect(nav(page)).not.toBeInViewport()

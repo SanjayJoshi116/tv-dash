@@ -20,6 +20,7 @@ import {
 import type { TvSeries } from '../types/series'
 import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import {
   compareDescNullsLast,
   avgRating,
@@ -85,6 +86,7 @@ export function DashboardPage() {
   const { data, loading, error, refetch } = useTvDataContext()
   const navigate = useNavigate()
   const theme = useTheme()
+  const reducedMotion = usePrefersReducedMotion()
 
   const topShow = useMemo(() => topByWatchTime(data, 1)[0], [data])
   const stats = useMemo(() => ({
@@ -324,7 +326,7 @@ export function DashboardPage() {
                         <XAxis dataKey="range" tick={{ fill: theme.chartText, fontSize: 11 }} />
                         <YAxis tick={{ fill: theme.chartText, fontSize: 11 }} allowDecimals={false} />
                         <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
-                        <Bar dataKey="count" name="Shows" fill={theme.token.colorPrimary} radius={[3, 3, 0, 0]} />
+                        <Bar isAnimationActive={!reducedMotion} dataKey="count" name="Shows" fill={theme.token.colorPrimary} radius={[3, 3, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ),

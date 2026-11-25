@@ -12,7 +12,7 @@ import {
   VideoCameraOutlined,
 } from '@ant-design/icons'
 import { useTvDataContext } from '../context/useTvDataContext'
-import { completionRate, formatRating, formatRuntime } from '../utils/derive'
+import { completionRate, findShow, formatRating, formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
 import { SECTION_GAP, SPACING, cardStyle as baseCardStyle, completionColor, genreTagColor, ratingColor, statusTagColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
@@ -42,7 +42,7 @@ export function ShowDetailPage() {
   const [overviewOverflows, setOverviewOverflows] = useState(false)
   const overviewRef = useRef<HTMLParagraphElement>(null)
 
-  const series = data.find(s => s.tvId === Number(id))
+  const series = findShow(data, id)
 
   // Reset per-show UI state when navigating to a different show (the page
   // isn't remounted on /shows/1 → /shows/2). See AppLayout.tsx's identical

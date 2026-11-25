@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
 import { Button, Grid, Layout, Menu, Typography } from 'antd'
 import { BarChartOutlined, DashboardOutlined, MenuFoldOutlined, MenuUnfoldOutlined, VideoCameraOutlined } from '@ant-design/icons'
@@ -9,15 +9,15 @@ import { CsvWarningBanner } from './CsvWarningBanner'
 import { BottomNav, BOTTOM_NAV_HEIGHT } from './BottomNav'
 import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { APP_NAME, normalizePath, pageTitleFor } from '../utils/pageTitle'
+import { SIDEBAR_KEY } from '../utils/settings'
 
 const { Sider, Header, Content } = Layout
 const { Title } = Typography
 
-interface Props {
-  activeThemeName: string
-  onThemeChange: (name: string) => void
-}
-
+// Every route needs an entry here (or an explicit case in pageTitleFor) — anything else is
+// titled "Page not found" in the header and the browser tab.
 const NAV_ITEMS = [
   { key: '/', label: 'Dashboard', icon: <DashboardOutlined /> },
   { key: '/shows', label: 'Shows', icon: <VideoCameraOutlined /> },
@@ -25,13 +25,14 @@ const NAV_ITEMS = [
 ]
 
 function loadSidebarCollapsed(): boolean {
-  try { return localStorage.getItem('tvdash-sidebar') === 'true' } catch { return false }
+  try { return localStorage.getItem(SIDEBAR_KEY) === 'true' } catch { return false }
 }
 
-export function AppLayout({ activeThemeName, onThemeChange }: Props) {
+export function AppLayout() {
   const theme = useTheme()
-  // Shell-level, like the theme: skipped-row warnings apply to every page
-  const { warnings } = useTvDataContext()
+  // Shell-level, like the theme: skipped-row warnings apply to every page; data / loading
+  // only feed the page title (show name on Show Detail)
+  const { warnings, data, loading } = useTvDataContext()
   const location = useLocation()
   const navigate = useNavigate()
   const screens = Grid.useBreakpoint()
@@ -42,7 +43,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
 
   const handleCollapse = (v: boolean) => {
     setCollapsed(v)
-    try { localStorage.setItem('tvdash-sidebar', String(v)) } catch { /* ignore storage errors */ }
+    try { localStorage.setItem(SIDEBAR_KEY, String(v)) } catch { /* ignore storage errors */ }
   }
 
   // Content is the scroll container (not window), so the router never resets it.
@@ -52,13 +53,18 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
   }, [location.pathname])
 
   // Exact match — /shows/12/extra is a 404, not a show detail page
-  const isShowDetail = useMatch('/shows/:id') !== null
-  // Router matches /shows/ as /shows, so normalize the trailing slash for nav/title lookup
-  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/'
+  const showMatch = useMatch('/shows/:id')
+  const isShowDetail = showMatch !== null
+  const showId = showMatch?.params.id ?? null
+  // Router matches /shows/ and /Shows as /shows — normalize the same way for nav/title lookup
+  const normalizedPath = normalizePath(location.pathname)
   const selectedKey = isShowDetail ? '/shows' : normalizedPath
-  const pageTitle = isShowDetail
-    ? 'Show Detail'
-    : (NAV_ITEMS.find(i => i.key === normalizedPath)?.label ?? 'TV Dashboard')
+  // One title for header + tab, so they can't disagree
+  const pageTitle = useMemo(
+    () => pageTitleFor({ path: normalizedPath, showId, data, loading, navItems: NAV_ITEMS }),
+    [normalizedPath, showId, data, loading],
+  )
+  useDocumentTitle(`${pageTitle} · ${APP_NAME}`)
 
   const pad = screens.sm ? 24 : 12
 
@@ -129,7 +135,7 @@ export function AppLayout({ activeThemeName, onThemeChange }: Props) {
           <Title level={4} ellipsis style={{ margin: 0, minWidth: 0, flex: 1 }}>
             {pageTitle}
           </Title>
-          <ThemeToggle value={activeThemeName} onChange={onThemeChange} />
+          <ThemeToggle />
         </Header>
 
         <Content

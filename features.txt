@@ -1,5 +1,5 @@
 TV Dashboard — Feature List
-Version 0.4.14
+Version 0.4.19
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
@@ -109,7 +109,8 @@ Tab labels shorten below the sm breakpoint ("Watch Time" → "Time",
 tab-overflow trigger on narrow screens. All chart cards: shadow +
 rounded corners (matches other pages).
 Pie/donut legends fade in after the slice animation, including on
-returning to the Overview tab. Status donut has fixed colors for
+returning to the Overview tab (and stay visible if reduced motion is
+switched off mid-visit). Status donut has fixed colors for
 Returning Series, Ended, Canceled, In Production, Planned, Pilot; each
 status uses the same color as a bar/slice and as a tag. Unknown
 statuses get a theme chart color on every page (not Ended grey).
@@ -121,8 +122,17 @@ THEMES
 - Default Dark — indigo/purple on near-black
 - Default Light — indigo on white, Tailwind-600 chart palette, pure black text
 - Dracula — purple/pink on #282a36
-- Theme persists across sessions via localStorage
+- System (listed first, default when nothing is saved) — follows the OS
+  prefers-color-scheme: Default Dark ↔ Default Light, switches live
+- Theme choice (incl. System) persists across sessions via localStorage;
+  an unknown saved value falls back to System
+- Page root uses the theme's native color scheme + background — dark
+  scrollbars / autofill / form controls in dark themes
+- No flash on load: an inline boot script (generated from themes.ts at
+  build time) applies the saved / OS theme colors before the app loads
 - All theme colors via Theme object — no hardcoded dark/light values
+- Every theme's chart colors and chart text meet WCAG AA contrast on its
+  background (checked by a test)
 
 ═══════════════════════════════════════
 CSV GENERATOR (series-search.py)
@@ -161,6 +171,9 @@ Mobile (viewport < lg breakpoint):
 - Sidebar/Sider fully hidden (collapsedWidth 0) — no hamburger, no
   drawer. Replaced by a fixed bottom nav bar: 3 icon+label buttons
   (Dashboard/Shows/Statistics), active route highlighted
+- Respects the OS reduce-motion setting (live): no chart entry animations,
+  pie legends shown at once (no fade), no Ant Design motion, bottom nav
+  hides/shows instantly instead of sliding
 - Bottom nav auto-hides on scroll-down (slides off via translateY,
   0.25s transition), reappears on scroll-up or near the top of page;
   always shown after navigating or on entering mobile width (resize /
@@ -210,9 +223,22 @@ TECHNICAL
 - cardShadow(isDark) shared helper in constants/ui.ts — one shadow
   formula used by Dashboard, FilterBar, ChartsSection, StatsBar, and
   Show Detail cards instead of 5x duplicated inline style objects
-- Catch-all 404 route (NotFoundPage); trailing-slash URLs (/shows/)
-  get the right nav highlight + header title
+- Catch-all 404 route (NotFoundPage); trailing-slash and mixed-case URLs
+  (/shows/, /Stats) get the right nav highlight + header title
+- Show URLs accept canonical IDs only (/shows/0x1, /shows/01 → Show not found);
+  a show with a blank name is titled "Untitled show"
+- Browser tab title per route ("Dashboard · TV Dashboard", "<show name> ·
+  TV Dashboard" on Show Detail, "Page not found · TV Dashboard") — same
+  title as the header, which shows the series name on Show Detail
+  ("Show Detail" while loading, "Show not found" for an unknown ID)
 - Every navigation starts at the top of the page (Content scroll reset)
+- RootErrorBoundary around the whole app: a crash in the shell (providers,
+  router, layout) shows a plain recovery screen (works without the theme /
+  antd, follows OS light/dark) with the error message, Reload and Reset
+  saved settings — never a blank page, whatever was thrown
+- ?reset on any URL clears saved settings (theme, filters, sidebar) before
+  the app starts — first paint already uses the reset theme (no flash); the
+  parameter is then removed, other params kept exactly as typed
 - RouteErrorBoundary + Suspense inside AppLayout: page crash or failed
   lazy-chunk load shows ErrorState with reload; shell stays mounted
 - Dev server binds 0.0.0.0 (vite.config server.host: true) — reachable

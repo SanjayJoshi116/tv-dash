@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Card, Col, Grid, Row, Tabs, Typography } from 'antd'
 import {
   Area,
@@ -38,6 +38,7 @@ import {
 } from '../utils/derive'
 import { cardStyle as baseCardStyle, completionColor, statusHex } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 const { Text } = Typography
 
@@ -65,6 +66,7 @@ const ScatterTooltipContent = memo(function ScatterTooltipContent({ payload, sty
 // Pie + legend that fades in after the slice animation. The anim-done flag lives here,
 // not in ChartsSection, so it resets whenever the tab pane remounts (destroyOnHidden) —
 // otherwise the legend would be fully visible while the pie replays its entry animation.
+// Reduced motion: no animation → onAnimationEnd never fires, so the legend must not wait for it.
 interface AnimatedPieProps {
   data: NameValue[]
   colors: string[]
@@ -76,7 +78,15 @@ interface AnimatedPieProps {
 }
 type PieLabel = false | ((p: { name: string; percent: number }) => string)
 function AnimatedPie({ data, colors, height, ariaLabel, innerRadius, outerRadius, label }: AnimatedPieProps) {
+  const reducedMotion = usePrefersReducedMotion()
   const [animDone, setAnimDone] = useState(false)
+  // Latch: a legend shown under reduced motion stays shown if the preference is switched off
+  // (Recharts would replay the entry animation with the legend hidden). Plain effect on
+  // purpose — see CLAUDE.md on set-state-in-effect under StrictMode.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (reducedMotion) setAnimDone(true)
+  }, [reducedMotion])
   return (
     <ResponsiveContainer width="100%" height={height} debounce={200} aria-label={ariaLabel}>
       <PieChart>
@@ -90,6 +100,7 @@ function AnimatedPie({ data, colors, height, ariaLabel, innerRadius, outerRadius
           outerRadius={outerRadius}
           label={label}
           labelLine={false}
+          isAnimationActive={!reducedMotion}
           onAnimationEnd={() => setAnimDone(true)}
         >
           {data.map((_, i) => (
@@ -97,7 +108,7 @@ function AnimatedPie({ data, colors, height, ariaLabel, innerRadius, outerRadius
           ))}
         </Pie>
         <Tooltip formatter={(v: number, name: string) => [`${v} shows`, name]} />
-        <Legend wrapperStyle={{ opacity: animDone ? 1 : 0, transition: 'opacity 0.3s' }} />
+        <Legend wrapperStyle={reducedMotion ? undefined : { opacity: animDone ? 1 : 0, transition: 'opacity 0.3s' }} />
       </PieChart>
     </ResponsiveContainer>
   )
@@ -109,6 +120,8 @@ interface Props {
 
 export const ChartsSection = memo(function ChartsSection({ data }: Props) {
   const theme = useTheme()
+  // Every Recharts series gets isAnimationActive={!reducedMotion} (helpers included)
+  const reducedMotion = usePrefersReducedMotion()
   const screens = Grid.useBreakpoint()
 
   const { chartColors, chartGrid: gridColor, chartText: textColor, areaFill } = theme
@@ -174,7 +187,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
         <XAxis type="number" tick={axisTick} allowDecimals={false} />
         <YAxis type="category" dataKey="name" width={yAxisWidth} tick={axisTick} />
         <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
-        <Bar dataKey={dataKey} name="Shows" fill={color} radius={[0, 3, 3, 0]} />
+        <Bar isAnimationActive={!reducedMotion} dataKey={dataKey} name="Shows" fill={color} radius={[0, 3, 3, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -226,7 +239,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis dataKey="name" tick={axisTick} />
               <YAxis tick={axisTick} allowDecimals={false} />
               <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
-              <Bar dataKey="value" name="Shows" fill={chartColors[8]} radius={[3, 3, 0, 0]} />
+              <Bar isAnimationActive={!reducedMotion} dataKey="value" name="Shows" fill={chartColors[8]} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -241,7 +254,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis dataKey="year" tick={axisTick} interval="preserveStartEnd" />
               <YAxis tick={axisTick} allowDecimals={false} />
               <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
-              <Bar dataKey="count" name="Shows" fill={chartColors[1]} radius={[3, 3, 0, 0]} />
+              <Bar isAnimationActive={!reducedMotion} dataKey="count" name="Shows" fill={chartColors[1]} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -264,7 +277,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis type="number" tick={axisTick} tickFormatter={v => `${Math.round(v / 60)}h`} />
               <YAxis type="category" dataKey="name" width={yAxisWidth} tick={axisTick} />
               <Tooltip formatter={(v: number) => [formatRuntime(v), 'Watch time']} />
-              <Bar dataKey="mins" name="Watch time" fill={chartColors[4]} radius={[0, 3, 3, 0]} />
+              <Bar isAnimationActive={!reducedMotion} dataKey="mins" name="Watch time" fill={chartColors[4]} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>
           <Text type="secondary" style={{ fontSize: 11 }}>Sorted by total runtime watched</Text>
@@ -280,7 +293,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis dataKey="depth" tick={axisTick} />
               <YAxis tick={axisTick} allowDecimals={false} />
               <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
-              <Bar dataKey="count" name="Shows" fill={chartColors[9]} radius={[3, 3, 0, 0]} />
+              <Bar isAnimationActive={!reducedMotion} dataKey="count" name="Shows" fill={chartColors[9]} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -302,6 +315,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <YAxis tick={axisTick} tickFormatter={v => `${v}h`} />
               <Tooltip formatter={(v: number) => [`${v}h`, 'Hours watched']} />
               <Area
+                isAnimationActive={!reducedMotion}
                 type="monotone"
                 dataKey="hours"
                 stroke={areaFill}
@@ -324,7 +338,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis dataKey="year" tick={axisTick} interval="preserveStartEnd" />
               <YAxis tick={axisTick} tickFormatter={v => `${v}h`} />
               <Tooltip formatter={(v: number) => [`${v}h`, 'Hours watched']} />
-              <Bar dataKey="hours" name="Hours" fill={chartColors[3]} radius={[3, 3, 0, 0]} />
+              <Bar isAnimationActive={!reducedMotion} dataKey="hours" name="Hours" fill={chartColors[3]} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -343,7 +357,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis dataKey="range" tick={axisTick} />
               <YAxis tick={axisTick} allowDecimals={false} />
               <Tooltip formatter={(v: number) => [`${v} shows`, 'Count']} />
-              <Bar dataKey="count" name="Shows" fill={chartColors[0]} radius={[3, 3, 0, 0]} />
+              <Bar isAnimationActive={!reducedMotion} dataKey="count" name="Shows" fill={chartColors[0]} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -371,7 +385,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
                 tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
               />
               <Tooltip content={scatterTooltipEl} />
-              <Scatter data={scatterData} fill={chartColors[0]} opacity={0.65} />
+              <Scatter isAnimationActive={!reducedMotion} data={scatterData} fill={chartColors[0]} opacity={0.65} />
             </ScatterChart>
           </ResponsiveContainer>
         </Card>
@@ -390,7 +404,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <XAxis type="number" domain={[0, 100]} tick={axisTick} tickFormatter={v => `${v}%`} />
               <YAxis type="category" dataKey="name" width={yAxisWidth} tick={axisTick} />
               <Tooltip formatter={(v: number) => [`${v}%`, 'Completion']} />
-              <Bar dataKey="pct" name="Completion" radius={[0, 3, 3, 0]}>
+              <Bar isAnimationActive={!reducedMotion} dataKey="pct" name="Completion" radius={[0, 3, 3, 0]}>
                 {genreCompletion.map((entry, i) => (
                   <Cell key={i} fill={completionColor(entry.pct)} />
                 ))}

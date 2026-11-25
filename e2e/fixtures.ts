@@ -57,13 +57,18 @@ export const TEST_CSV = csv(
 
 // Every test fails on a console error / uncaught exception. `csv` is the CSV served for
 // tv_series.csv — TEST_CSV by default; `test.use({ csv: null })` lets the real file through.
-export const test = base.extend<{ csv: string | null; consoleErrors: string[] }>({
+// `allowConsoleErrors`: one pattern for errors a test provokes on purpose (default none), e.g.
+// `test.use({ allowConsoleErrors: /boom/ })` in a spec that forces a crash. A RegExp, not an
+// array — Playwright reads an array option value as a `[value, options]` tuple.
+export const test = base.extend<{ csv: string | null; allowConsoleErrors: RegExp | null; consoleErrors: string[] }>({
   csv: [TEST_CSV, { option: true }],
+  allowConsoleErrors: [null, { option: true }],
   consoleErrors: [
-    async ({ page }, use) => {
+    async ({ page, allowConsoleErrors }, use) => {
       const errors: string[] = []
-      page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) })
-      page.on('pageerror', e => errors.push(String(e)))
+      const record = (text: string) => { if (!allowConsoleErrors?.test(text)) errors.push(text) }
+      page.on('console', m => { if (m.type() === 'error') record(m.text()) })
+      page.on('pageerror', e => record(String(e)))
       await use(errors)
       expect(errors, 'console errors').toEqual([])
     },
@@ -78,6 +83,23 @@ export const test = base.extend<{ csv: string | null; consoleErrors: string[] }>
 export { expect }
 
 export const content = (page: Page): Locator => page.locator('.ant-layout-content')
+export const scrollContent = (page: Page, y: number) => content(page).evaluate((el, top) => el.scrollTo(0, top), y)
+// Mobile BottomNav (below lg)
+export const bottomNav = (page: Page): Locator => page.locator('nav').filter({ has: page.getByRole('button', { name: 'Dashboard' }) })
+export const themeSelect = (page: Page): Locator => page.locator('.ant-select', { has: page.locator('#theme-select') })
+export const selectedTheme = (page: Page): Locator => themeSelect(page).locator('.ant-select-selection-item')
+
+// Holds matching requests until the returned `release()` is called. Register it after the
+// fixture's routes: it runs first, then `fallback()` hands the request on (fixture or network).
+export async function holdRoute(page: Page, url: string): Promise<() => void> {
+  let release!: () => void
+  const gate = new Promise<void>(r => { release = r })
+  await page.route(url, async route => {
+    await gate
+    await route.fallback()
+  })
+  return release
+}
 export const fallbackIcon = (scope: Locator): Locator => scope.locator('.anticon-video-camera')
 
 // Client-side navigation (react-router listens to popstate) — the page component is NOT remounted

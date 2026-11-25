@@ -1,19 +1,17 @@
 import { Select } from 'antd'
-import { THEME_NAMES } from '../themes'
+import { THEME_OPTIONS } from '../themes'
+import { useThemeSetting } from '../ThemeContext'
 
-interface Props {
-  value: string
-  onChange: (name: string) => void
-}
-
-export function ThemeToggle({ value, onChange }: Props) {
+// Theme preference ('System' or a theme name) — reads/sets it via context, like useTheme()
+export function ThemeToggle() {
+  const { preference, setPreference } = useThemeSetting()
   return (
     <Select
       id="theme-select"
       aria-label="Theme"
-      value={value}
-      onChange={onChange}
-      options={THEME_NAMES.map(n => ({ label: n, value: n }))}
+      value={preference}
+      onChange={setPreference}
+      options={THEME_OPTIONS.map(n => ({ label: n, value: n }))}
       style={{ width: 160 }}
       size="small"
     />
