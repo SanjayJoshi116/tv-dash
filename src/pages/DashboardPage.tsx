@@ -36,8 +36,9 @@ import {
   totalEpisodesWatched,
   totalHoursWatched,
 } from '../utils/derive'
-import { SECTION_GAP, STAR_COLOR, STATUSES, cardShadow, cardStyle, completionColor, ratingColor, statusHex } from '../constants/ui'
+import { SECTION_GAP, STATUSES, cardShadow, cardStyle, completionColor, ratingColor, statusHex } from '../constants/ui'
 import { activateOnKey } from '../utils/a11y'
+import { prefetchShowDetail } from '../routes/pageLoaders'
 import { PosterThumb } from '../components/PosterThumb'
 import { StatCard } from '../components/StatCard'
 import { LoadingState } from '../components/LoadingState'
@@ -67,6 +68,8 @@ function ShowRowCard({ series, bg, onClick, children, thumb = DEFAULT_THUMB, hea
       size="small"
       onClick={onClick}
       onKeyDown={activateOnKey(onClick)}
+      onMouseEnter={prefetchShowDetail}
+      onFocus={prefetchShowDetail}
       role="button"
       tabIndex={0}
       aria-label={ariaLabel ?? series.name}
@@ -154,9 +157,9 @@ export function DashboardPage() {
   const statCards = [
     { title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: theme.chartColors[0] },
     { title: 'Hours Watched', value: hours, suffix: 'h', prefix: <ClockCircleOutlined />, color: theme.chartColors[3] },
-    { title: 'Avg Rating', value: formatRating(avg), suffix: '/ 10', prefix: <StarOutlined />, color: ratingColor(avg) ?? theme.chartText },
+    { title: 'Avg Rating', value: formatRating(avg), suffix: '/ 10', prefix: <StarOutlined />, color: ratingColor(avg, theme) ?? theme.chartText },
     { title: 'Episodes Watched', value: totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: theme.chartColors[5] },
-    { title: 'Completion Rate', value: completion, suffix: '%', prefix: <CheckCircleOutlined />, color: completionColor(completion) },
+    { title: 'Completion Rate', value: completion, suffix: '%', prefix: <CheckCircleOutlined />, color: completionColor(completion, theme) },
   ]
 
   const goToShow = (s: TvSeries) => navigate(`/shows/${s.tvId}`)
@@ -172,7 +175,7 @@ export function DashboardPage() {
       label: 'Top Rated',
       icon: <StarFilled />,
       series: topRated,
-      detail: s => s.voteAverage != null && <Text style={{ fontSize: 12, color: ratingColor(s.voteAverage) }}><StarFilled style={{ fontSize: 11 }} /> {formatRating(s.voteAverage)} rating</Text>,
+      detail: s => s.voteAverage != null && <Text style={{ fontSize: 12, color: ratingColor(s.voteAverage, theme) }}><StarFilled style={{ fontSize: 11 }} /> {formatRating(s.voteAverage)} rating</Text>,
     },
     {
       label: 'Newest Release',
@@ -288,7 +291,7 @@ export function DashboardPage() {
                     <Text strong ellipsis style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>{series.name}</Text>
                     <Text type="secondary" style={{ fontSize: 11 }}>{series.firstAirYear ?? '–'}</Text>
                     {series.voteAverage != null && (
-                      <Text type="secondary" style={{ fontSize: 11 }}> · <StarFilled style={{ color: STAR_COLOR, fontSize: 10 }} /> {formatRating(series.voteAverage)}</Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}> · <StarFilled style={{ color: theme.star, fontSize: 10 }} /> {formatRating(series.voteAverage)}</Text>
                     )}
                     <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 2 }}>{series.episodesWatched}/{series.totalEpisodes} eps</Text>
                   </ShowRowCard>
@@ -350,6 +353,8 @@ export function DashboardPage() {
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
                     onClick={() => goToShow(series)}
                     onKeyDown={activateOnKey(() => goToShow(series))}
+                    onMouseEnter={prefetchShowDetail}
+                    onFocus={prefetchShowDetail}
                     role="button"
                     tabIndex={0}
                     aria-label={series.name}
@@ -359,7 +364,7 @@ export function DashboardPage() {
                       <Text strong ellipsis style={{ display: 'block', fontSize: 13 }}>{series.name}</Text>
                       <Text type="secondary" style={{ fontSize: 11 }}>
                         {series.firstAirYear ?? '–'}
-                        {series.voteAverage != null && <> · <StarFilled style={{ color: STAR_COLOR, fontSize: 10 }} /> {formatRating(series.voteAverage)}</>}
+                        {series.voteAverage != null && <> · <StarFilled style={{ color: theme.star, fontSize: 10 }} /> {formatRating(series.voteAverage)}</>}
                       </Text>
                     </div>
                   </div>

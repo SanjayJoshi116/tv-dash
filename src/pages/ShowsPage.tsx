@@ -19,6 +19,9 @@ const SORT_KEYS: readonly SortKey[] = SORT_OPTIONS.map(o => o.value)
 
 // Type-check each stored field — a corrupt value falls back to its default (mirrors themes.ts parseThemePreference).
 // Values absent from the current data (removed genre/status) are dropped in ShowsPage once data loads.
+// Read once on mount — deliberately not subscribed to other tabs (subscribeSettings): a live
+// update would overwrite what the user is typing here. Another tab's saved filters apply the
+// next time this page mounts; saveSetting merges, so our saves don't revert its other settings.
 function loadFilters(): Filters {
   const raw = getSettings().filters
   if (!raw || typeof raw !== 'object') return DEFAULT_FILTERS

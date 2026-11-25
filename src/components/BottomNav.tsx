@@ -2,13 +2,17 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { Typography, theme as antTheme } from 'antd'
 import { useTheme } from '../ThemeContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { prefetchPage, type PageKey } from '../routes/pageLoaders'
 
 const { Text } = Typography
 
 export const BOTTOM_NAV_HEIGHT = 60
 
+// A primary nav route (AppLayout's NAV_ITEMS): `page` = the code prefetched on intent
+export type NavItem = { key: string; label: string; icon: ReactNode; page: PageKey }
+
 interface Props {
-  items: { key: string; label: string; icon: ReactNode }[]
+  items: NavItem[]
   selectedKey: string
   pathname: string
   // The scroll container (AppLayout's Content — not window)
@@ -86,6 +90,9 @@ export function BottomNav({ items, selectedKey, pathname, scrollRef, onNavigate 
           <button
             key={item.key}
             onClick={() => onNavigate(item.key)}
+            // Touch has no hover: pointerdown fires before click, so the chunk starts loading first
+            onPointerDown={() => prefetchPage(item.page)}
+            onFocus={() => prefetchPage(item.page)}
             aria-label={item.label}
             aria-current={active ? 'page' : undefined}
             style={{

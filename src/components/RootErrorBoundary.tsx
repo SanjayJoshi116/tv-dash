@@ -1,10 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { resetSettings } from '../utils/settings'
 import { errorMessage } from '../utils/errorMessage'
+import { activateWaitingServiceWorker } from '../utils/serviceWorker'
 
 interface Props {
   children: ReactNode
-  // Injectable for tests; defaults to a real reload
+  // Injectable for tests; defaults to activating a waiting service worker (a fixed build), then
+  // a real reload
   reload?: () => void
 }
 
@@ -32,7 +34,7 @@ export class RootErrorBoundary extends Component<Props, State> {
 
   private reload = () => {
     if (this.props.reload) this.props.reload()
-    else window.location.reload()
+    else void activateWaitingServiceWorker().then(() => window.location.reload())
   }
 
   private resetAndReload = () => {

@@ -2,6 +2,7 @@ import { test as base, expect, type Locator, type Page } from '@playwright/test'
 // Synthetic CSV for the e2e suite — `csv()` adds the header shared with the unit tests
 // (series-search.py FIELDNAMES order), so the column contract lives in one TS place
 import { csv } from '../src/utils/parseSeriesCsv.fixture'
+import { SETTINGS_KEY } from '../src/utils/settings'
 
 // 1×1 PNG — a poster that always loads (quoted in the CSV: the data URI contains a comma)
 export const GOOD_POSTER =
@@ -60,24 +61,46 @@ export const TEST_CSV = csv(
 // `allowConsoleErrors`: one pattern for errors a test provokes on purpose (default none), e.g.
 // `test.use({ allowConsoleErrors: /boom/ })` in a spec that forces a crash. A RegExp, not an
 // array — Playwright reads an array option value as a `[value, options]` tuple.
-export const test = base.extend<{ csv: string | null; allowConsoleErrors: RegExp | null; consoleErrors: string[] }>({
+// Fixture routes: `body` for tv_series.csv (null = real file) + the broken poster
+async function serveFixtures(page: Page, body: string | null) {
+  if (body != null) await page.route('**/tv_series.csv', r => r.fulfill({ status: 200, contentType: 'text/csv', body }))
+  await page.route(`**${BROKEN_POSTER}`, r => r.fulfill({ status: 200, contentType: 'image/png', body: 'not a png' }))
+}
+
+// `newTab()`: another page in the same browser context (shares localStorage, gets `storage`
+// events) with the same fixture routes and console-error check as `page`.
+export const test = base.extend<{
+  csv: string | null
+  allowConsoleErrors: RegExp | null
+  watchConsole: (page: Page) => void
+  newTab: () => Promise<Page>
+}>({
   csv: [TEST_CSV, { option: true }],
   allowConsoleErrors: [null, { option: true }],
-  consoleErrors: [
-    async ({ page, allowConsoleErrors }, use) => {
+  watchConsole: [
+    async ({ allowConsoleErrors }, use) => {
       const errors: string[] = []
       const record = (text: string) => { if (!allowConsoleErrors?.test(text)) errors.push(text) }
-      page.on('console', m => { if (m.type() === 'error') record(m.text()) })
-      page.on('pageerror', e => record(String(e)))
-      await use(errors)
+      await use(page => {
+        page.on('console', m => { if (m.type() === 'error') record(m.text()) })
+        page.on('pageerror', e => record(String(e)))
+      })
       expect(errors, 'console errors').toEqual([])
     },
     { auto: true },
   ],
-  page: async ({ page, csv: body }, use) => {
-    if (body != null) await page.route('**/tv_series.csv', r => r.fulfill({ status: 200, contentType: 'text/csv', body }))
-    await page.route(`**${BROKEN_POSTER}`, r => r.fulfill({ status: 200, contentType: 'image/png', body: 'not a png' }))
+  page: async ({ page, csv, watchConsole }, use) => {
+    watchConsole(page)
+    await serveFixtures(page, csv)
     await use(page)
+  },
+  newTab: async ({ context, csv, watchConsole }, use) => {
+    await use(async () => {
+      const tab = await context.newPage()
+      watchConsole(tab)
+      await serveFixtures(tab, csv)
+      return tab
+    })
   },
 })
 export { expect }
@@ -88,6 +111,39 @@ export const scrollContent = (page: Page, y: number) => content(page).evaluate((
 export const bottomNav = (page: Page): Locator => page.locator('nav').filter({ has: page.getByRole('button', { name: 'Dashboard' }) })
 export const themeSelect = (page: Page): Locator => page.locator('.ant-select', { has: page.locator('#theme-select') })
 export const selectedTheme = (page: Page): Locator => themeSelect(page).locator('.ant-select-selection-item')
+
+// Picks a theme in the header selector (exact option text) and waits until it's selected
+export async function pickTheme(page: Page, name: string): Promise<void> {
+  await themeSelect(page).click()
+  await page.locator('.ant-select-item-option').filter({ hasText: new RegExp(`^${name}$`) }).click()
+  await expect(selectedTheme(page)).toHaveText(name)
+}
+
+// Saved theme before every page load (incl. reloads) — use only where it must stay fixed
+export async function saveTheme(page: Page, themeName: string): Promise<void> {
+  await page.addInitScript(([key, name]) => localStorage.setItem(key, JSON.stringify({ themeName: name })), [SETTINGS_KEY, themeName] as const)
+}
+
+// #rrggbb → the computed-style `rgb(r, g, b)` string
+export function rgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+// <html> color-scheme + background as AppThemeProvider / the boot script set them (`bg` = rgb())
+export async function expectDocTheme(page: Page, scheme: 'dark' | 'light', bg: string): Promise<void> {
+  const html = page.locator('html')
+  await expect(html).toHaveCSS('color-scheme', scheme)
+  await expect(html).toHaveCSS('background-color', bg)
+}
+
+// Window flag that a reload would clear — proves a change was applied live
+type NoReloadWindow = { __noReload?: boolean }
+export async function markNoReload(page: Page): Promise<void> {
+  await page.evaluate(() => { (window as NoReloadWindow).__noReload = true })
+}
+export const stillNoReload = (page: Page): Promise<boolean | undefined> =>
+  page.evaluate(() => (window as NoReloadWindow).__noReload)
 
 // Holds matching requests until the returned `release()` is called. Register it after the
 // fixture's routes: it runs first, then `fallback()` hands the request on (fixture or network).

@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 // Browser e2e suite (`npm run e2e`). Tests serve their own CSV via route interception
 // (e2e/fixtures.ts) — only the "real CSV" smoke test reads public/tv_series.csv, and skips
 // itself when that file is absent (it's gitignored, so CI has none).
+// e2e/pwa.spec.ts has its own config (playwright.pwa.config.ts, `npm run e2e:pwa`): it needs a
+// production build, and Playwright starts every webServer of a config on every run.
 const PORT = 5199
 
 export default defineConfig({
@@ -18,7 +20,13 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } } }],
+  projects: [
+    {
+      name: 'chromium',
+      testIgnore: 'pwa.spec.ts',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } },
+    },
+  ],
   webServer: {
     command: `npm run dev -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,

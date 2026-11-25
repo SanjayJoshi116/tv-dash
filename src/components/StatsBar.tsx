@@ -57,9 +57,9 @@ export const StatsBar = memo(function StatsBar({ data }: Props) {
 
   const cards = [
     { key: 'shows-watched', title: 'Shows Watched', value: data.length, prefix: <VideoCameraOutlined />, color: chartColors[0] },
-    { key: 'avg-rating', title: 'Avg Rating', value: formatRating(stats.rating), prefix: <StarOutlined />, suffix: '/ 10', color: ratingColor(stats.rating) ?? theme.chartText },
+    { key: 'avg-rating', title: 'Avg Rating', value: formatRating(stats.rating), prefix: <StarOutlined />, suffix: '/ 10', color: ratingColor(stats.rating, theme) ?? theme.chartText },
     { key: 'unique-genres', title: 'Unique Genres', value: stats.genres, prefix: <TagsOutlined />, color: chartColors[1] },
-    { key: 'completion-rate', title: 'Completion Rate', value: stats.completion, prefix: <TrophyOutlined />, suffix: '%', color: completionColor(stats.completion) },
+    { key: 'completion-rate', title: 'Completion Rate', value: stats.completion, prefix: <TrophyOutlined />, suffix: '%', color: completionColor(stats.completion, theme) },
     { key: 'episodes-watched', title: 'Episodes Watched', value: stats.totalEpisodes.toLocaleString(), prefix: <PlayCircleOutlined />, color: chartColors[2] },
     { key: 'top-genre', title: 'Top Genre', value: stats.topGenre, prefix: <FireOutlined />, color: chartColors[3] },
     { key: 'top-network', title: 'Top Network', value: stats.topNetwork, prefix: <WifiOutlined />, color: chartColors[4] },

@@ -6,23 +6,35 @@ import { ThemeToggle } from './ThemeToggle'
 import { LoadingState } from './LoadingState'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { CsvWarningBanner } from './CsvWarningBanner'
-import { BottomNav, BOTTOM_NAV_HEIGHT } from './BottomNav'
+import { OfflineNotice } from './OfflineNotice'
+import { UpdatePrompt } from './UpdatePrompt'
+import { BottomNav, BOTTOM_NAV_HEIGHT, type NavItem } from './BottomNav'
 import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { APP_NAME, normalizePath, pageTitleFor } from '../utils/pageTitle'
 import { SIDEBAR_KEY } from '../utils/settings'
+import { prefetchPage } from '../routes/pageLoaders'
 
 const { Sider, Header, Content } = Layout
 const { Title } = Typography
 
 // Every route needs an entry here (or an explicit case in pageTitleFor) — anything else is
-// titled "Page not found" in the header and the browser tab.
-const NAV_ITEMS = [
-  { key: '/', label: 'Dashboard', icon: <DashboardOutlined /> },
-  { key: '/shows', label: 'Shows', icon: <VideoCameraOutlined /> },
-  { key: '/stats', label: 'Statistics', icon: <BarChartOutlined /> },
+// titled "Page not found" in the header and the browser tab. `page` = the code prefetched on
+// hover / focus (sidebar) or touch-start / focus (BottomNav).
+const NAV_ITEMS: NavItem[] = [
+  { key: '/', label: 'Dashboard', icon: <DashboardOutlined />, page: 'dashboard' },
+  { key: '/shows', label: 'Shows', icon: <VideoCameraOutlined />, page: 'shows' },
+  { key: '/stats', label: 'Statistics', icon: <BarChartOutlined />, page: 'statistics' },
 ]
+
+// antd Menu items: `page` stripped (it would land on the <li> as an unknown DOM attribute);
+// rc-menu focuses the <li> during keyboard navigation, so onFocus covers arrow keys too
+const MENU_ITEMS = NAV_ITEMS.map(({ page, ...item }) => ({
+  ...item,
+  onMouseEnter: () => prefetchPage(page),
+  onFocus: () => prefetchPage(page),
+}))
 
 function loadSidebarCollapsed(): boolean {
   try { return localStorage.getItem(SIDEBAR_KEY) === 'true' } catch { return false }
@@ -104,7 +116,7 @@ export function AppLayout() {
           selectedKeys={[selectedKey]}
           theme={theme.isDark ? 'dark' : 'light'}
           style={{ background: 'transparent', borderRight: 'none', flex: 1 }}
-          items={NAV_ITEMS}
+          items={MENU_ITEMS}
           onClick={({ key }) => navigate(key)}
         />
         <div style={{
@@ -151,6 +163,8 @@ export function AppLayout() {
           }}
         >
           <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+            <UpdatePrompt />
+            <OfflineNotice hasData={data.length > 0} />
             <CsvWarningBanner warnings={warnings} />
             <RouteErrorBoundary pathname={location.pathname}>
               <Suspense fallback={<LoadingState />}>

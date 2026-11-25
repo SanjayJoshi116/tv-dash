@@ -2,6 +2,7 @@ import type { Grid } from 'antd'
 import type { SortKey } from '../types/filters'
 import { KNOWN_STATUSES, type KnownStatus } from '../types/series'
 import { lookup } from '../utils/lookup'
+import type { Theme, Tier } from '../themes'
 
 type Screens = ReturnType<typeof Grid.useBreakpoint>
 
@@ -52,18 +53,16 @@ export const SORT_OPTIONS = (Object.keys(SORT_LABELS) as SortKey[]).map(value =>
 export const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const
 export const SECTION_GAP = 24
 
-// Green / amber / red by threshold — shared by every value-driven color
-const tierColor = (high: number, mid: number) => (v: number): string =>
-  v >= high ? '#52c41a' : v >= mid ? '#faad14' : '#f5222d'
+// Good / medium / poor by threshold — pure; colors come from the active theme's `tiers`
+export const tier = (v: number, high: number, mid: number): Tier =>
+  v >= high ? 'success' : v >= mid ? 'warning' : 'danger'
 
-const ratingTier = tierColor(8, 6)
+// A rating's tier colors: `fill` + `onFill` (text on that fill, ≥ 4.5:1 — rating badges).
 // Unknown rating (null) -> undefined: callers pick the fallback (`?? theme.chartText`, or inherit)
-export const ratingColor = (v: number | null): string | undefined => (v == null ? undefined : ratingTier(v))
-export const completionColor = tierColor(75, 40)
-
-// Star icon next to a rating in compact lists (Dashboard Recently Watched / Not Started) —
-// deliberately a fixed gold, not ratingColor (the number carries the tier color elsewhere)
-export const STAR_COLOR = '#faad14'
+export const ratingTierColors = (v: number | null, theme: Theme): Theme['tiers'][Tier] | undefined =>
+  v == null ? undefined : theme.tiers[tier(v, 8, 6)]
+export const ratingColor = (v: number | null, theme: Theme): string | undefined => ratingTierColors(v, theme)?.fill
+export const completionColor = (v: number, theme: Theme): string => theme.tiers[tier(v, 75, 40)].fill
 
 export function cardShadow(isDark: boolean): string {
   return isDark ? '0 6px 20px rgba(0,0,0,0.35)' : '0 4px 16px rgba(30,30,63,0.08)'

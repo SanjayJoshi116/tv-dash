@@ -1,5 +1,87 @@
 # Changelog
 
+## [0.4.23] — 2026-11-25
+
+OpenSpec change `add-pwa-offline` implemented and archived (`openspec/changes/archive/2026-11-25-add-pwa-offline`; new main spec `offline-support`). 6 changes still open.
+
+### Added
+
+- **Installable PWA** (production build, `vite-plugin-pwa` 2 / Workbox): web app manifest (name, start URL `/`, standalone, theme / background from Default Dark), 192 / 512 / maskable 512 icons + Apple touch icon generated from the new `public/tv.svg`
+- **Offline:** the built app shell is precached and deep links (`/shows/12`) open offline (`navigateFallback`); `tv_series.csv` is fetched network-first with a 8s timeout and falls back to the last copy; "Offline — showing saved data" notice while the browser is offline (`useOnlineStatus`, `OfflineNotice`). Posters aren't cached
+- **Update prompt:** a new deploy shows "New version available — Reload" (`UpdatePrompt`, `registerType: 'prompt'`) instead of swapping code mid-session
+- **`<meta name="theme-color">`** follows the active theme's header color — set by the boot script before first paint and by `AppThemeProvider` on theme changes
+- Playwright `pwa` project (`vite build && vite preview` on :4199, service workers on): manifest + icons, SW registration, offline reload of every page incl. a Show Detail deep link, offline notice, `theme-color`; first-paint `theme-color` check in `theme.spec`; `useOnlineStatus` unit tests
+- 210 unit, 60 e2e (56 + 4 PWA)
+
+### Fixed
+
+- Missing favicon: `index.html` pointed at `/tv.svg`, which was never committed
+
+### Fixed (code review of 0.4.20–0.4.23)
+
+- **Crash screen Reload kept serving a broken build:** with the shell crashed, `UpdatePrompt` (inside it) can't apply an update, and a plain reload keeps a waiting service worker waiting — Reload now activates the waiting worker first (`activateWaitingServiceWorker`)
+- Long-open tabs / installed windows never saw a new version (no navigations) and a dismissed prompt never came back — update check hourly + on becoming visible; the prompt re-appears on the next visibility
+- Reload in one tab silently reloaded every other prompted tab (a pending debounced filter save could be lost) — other tabs now show "updated in another tab — Reload"
+- `/tv_series.csv` opened in a tab showed the app's "Page not found" (shell navigation fallback) — URLs with a file extension bypass it
+- Slow-but-online CSV fetches (> 3s) silently showed the cached copy with no notice — network timeout raised to 8s
+- Offline notice claimed "showing saved data" with nothing loaded — "You're offline" then
+- Stale comments (theme-color source, boot-script property count, PWA config location)
+
+### Changed (simplify pass over 0.4.20–0.4.23)
+
+- PWA e2e moved to its own config / script (`npm run e2e:pwa`, separate CI step) — Playwright starts every web server of a config, so `npm run e2e` was paying ~60s for a production build it didn't need
+- Install-only `pwa-*.png` icons are no longer precached; the `theme-color` meta is emitted by the theme boot plugin from `THEMES` (no hand-typed color in `index.html`)
+- `ratingTierColors(v, theme)` replaces `ratingOnColor` — a badge reads `fill` / `onFill` from one call; `isThemePreference()` guard shared by `parseThemePreference` and the cross-tab sync; `createPrefetcher(loaders)` replaces the test-only loader parameter + cache-reset hook
+- Shared e2e helpers in `fixtures.ts` (`pickTheme`, `saveTheme`, `rgb` / `expectDocTheme`, `markNoReload` / `stillNoReload`; `watchConsole` fixture) and one WCAG `contrast()` (`src/utils/contrast.fixture.ts`) for the theme contract and the badge e2e
+
+### Notes
+
+- The service worker is production-only — the dev server is unchanged. In Vitest, `virtual:pwa-register/react` is aliased to a no-op fixture
+- `?reset` doesn't clear the service worker or the cached CSV — README troubleshooting: clear site data
+
+## [0.4.22] — 2026-11-25
+
+OpenSpec change `smarter-route-prefetch` implemented and archived (`openspec/changes/archive/2026-11-25-smarter-route-prefetch`; new main spec `route-prefetch`). 7 changes still open.
+
+### Changed
+
+- **Smarter route prefetch:** idle prefetch of every page is skipped under Data Saver or a 2G / slow-2G connection (unknown connection → prefetch as before)
+- Page loaders moved from `App` to `src/routes/pageLoaders.ts` (`PAGE_LOADERS`, lazy pages, `prefetchPage()`, `prefetchAllWhenIdle()`); `App` keeps one effect
+
+### Added
+
+- **Intent prefetch:** hovering / focusing a sidebar item (touch-start / focus on the mobile bottom nav) loads that page's code; hovering / focusing a show card or Dashboard show row loads Show Detail — so the first open has no loading flash. Each chunk is fetched at most once; a failed prefetch stays silent and retries later
+- E2E `prefetch` (page-module request counts with / without emulated Data Saver) and `pageLoaders` unit tests
+- 202 unit, 56 e2e
+
+## [0.4.21] — 2026-11-25
+
+OpenSpec change `sync-settings-across-tabs` implemented and archived (`openspec/changes/archive/2026-11-25-sync-settings-across-tabs`; new main spec `settings-sync`). 8 changes still open.
+
+### Added
+
+- **Cross-tab theme sync:** changing the theme (incl. System) in one tab applies to every other open dashboard tab without reload; a reset in one tab propagates, a corrupt or unknown value written elsewhere is ignored. Saved Shows filters deliberately don't change an already-open Shows page — they apply on its next visit. New `subscribeSettings()` in `settings.ts` (the `storage` event)
+- E2E `settings-sync` (two tabs, new `newTab()` fixture) and `subscribeSettings` / `saveSetting` unit tests
+- 196 unit, 53 e2e
+
+## [0.4.20] — 2026-11-25
+
+OpenSpec change `add-semantic-theme-colors` implemented and archived (`openspec/changes/archive/2026-11-25-add-semantic-theme-colors`; new main spec `semantic-colors`). 9 changes still open.
+
+### Changed
+
+- **Rating / completion colors come from the theme:** each theme defines `tiers` (`success` / `warning` / `danger`, each a `fill` + an `onFill` text color) and a `star` color. Default Light uses darker shades (`#237804` / `#a05e00` / `#cf1322`, were 1.75–2.08:1 on its background); Dracula uses its own `#50fa7b` / `#f1fa8c` / `#ff5555`; Default Dark keeps the antd colors
+- **Rating badges readable** (Show Cards, Show Detail): text uses the tier's `onFill` instead of white (white on amber was 1.9:1) — dark text on the bright fills of dark themes
+- **Compact-list rating star** (Dashboard Recently Watched / Not Started) uses `theme.star` instead of a fixed gold
+- `ratingColor(v, theme)` / `completionColor(v, theme)` take the theme; new `ratingOnColor(v, theme)` and pure `tier(v, high, mid)`; `STAR_COLOR` removed
+- `Theme.areaFill` removed — the Watch Time area chart uses `token.colorPrimary` (equal in every theme)
+
+### Added
+
+- Theme contract test: each tier fill ≥ 3:1 vs `contentBg`, its `onFill` ≥ 4.5:1 vs the fill, `star` ≥ 3:1
+- E2E `semantic-colors`: rating badge text vs fill ≥ 4.5:1 (computed styles) in Default Light and Default Dark
+- 190 unit, 50 e2e
+
 ## [0.4.19] — 2026-11-25
 
 OpenSpec change `refactor-typed-theme-provider` implemented and archived (`openspec/changes/archive/2026-11-25-refactor-typed-theme-provider`; no spec delta — refactor + tests). 10 changes still open.

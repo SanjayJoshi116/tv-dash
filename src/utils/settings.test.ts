@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { SIDEBAR_KEY, consumeResetParam, resetSettings } from './settings'
+import { SIDEBAR_KEY, consumeResetParam, getSettings, resetSettings, saveSetting, subscribeSettings } from './settings'
 
 beforeEach(() => localStorage.clear())
 afterEach(() => vi.restoreAllMocks())
@@ -79,5 +79,64 @@ describe('consumeResetParam', () => {
     const { didReset, hist } = run('http://x.test/?reset')
     expect(didReset).toBe(true)
     expect(hist.replaceState).toHaveBeenCalledWith({ idx: 0 }, '', 'http://x.test/')
+  })
+})
+
+describe('subscribeSettings', () => {
+  // What another tab's write looks like here (jsdom never fires `storage` for its own writes)
+  function fire(init: StorageEventInit) {
+    window.dispatchEvent(new StorageEvent('storage', { storageArea: localStorage, ...init }))
+  }
+
+  it('passes the new settings on a tvdash-settings change', () => {
+    const listener = vi.fn()
+    const unsubscribe = subscribeSettings(listener)
+    fire({ key: 'tvdash-settings', newValue: JSON.stringify({ themeName: 'Dracula' }) })
+    expect(listener).toHaveBeenCalledExactlyOnceWith({ themeName: 'Dracula' })
+    unsubscribe()
+  })
+
+  it('ignores other keys and other storage areas', () => {
+    const listener = vi.fn()
+    const unsubscribe = subscribeSettings(listener)
+    fire({ key: 'other-app', newValue: '{}' })
+    fire({ key: SIDEBAR_KEY, newValue: 'true' })
+    fire({ key: 'tvdash-settings', newValue: '{}', storageArea: sessionStorage })
+    expect(listener).not.toHaveBeenCalled()
+    unsubscribe()
+  })
+
+  it('a corrupt or non-object value is ignored (listener not called)', () => {
+    const listener = vi.fn()
+    const unsubscribe = subscribeSettings(listener)
+    for (const newValue of ['{not json', '42', '"Dracula"', '[1]', 'null']) fire({ key: 'tvdash-settings', newValue })
+    expect(listener).not.toHaveBeenCalled()
+    unsubscribe()
+  })
+
+  it('removed settings (reset) or localStorage.clear() → {}', () => {
+    const listener = vi.fn()
+    const unsubscribe = subscribeSettings(listener)
+    fire({ key: 'tvdash-settings', newValue: null })
+    fire({ key: null })
+    expect(listener.mock.calls).toEqual([[{}], [{}]])
+    unsubscribe()
+  })
+
+  it('unsubscribe stops calls', () => {
+    const listener = vi.fn()
+    subscribeSettings(listener)()
+    fire({ key: 'tvdash-settings', newValue: '{}' })
+    expect(listener).not.toHaveBeenCalled()
+  })
+})
+
+describe('saveSetting', () => {
+  it("keeps another tab's change made since this tab loaded", () => {
+    localStorage.setItem('tvdash-settings', JSON.stringify({ themeName: 'Default Light' }))
+    // another tab writes the theme directly
+    localStorage.setItem('tvdash-settings', JSON.stringify({ themeName: 'Dracula' }))
+    saveSetting('filters', { search: 'x' })
+    expect(getSettings()).toEqual({ themeName: 'Dracula', filters: { search: 'x' } })
   })
 })

@@ -32,6 +32,9 @@ __pycache__/
 scratch_*.png
 .claude/settings.local.json
 
+# vite-plugin-pwa dev output (devOptions) — never committed
+dev-dist/
+
 # Playwright
 test-results/
 playwright-report/

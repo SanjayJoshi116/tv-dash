@@ -14,7 +14,7 @@ import {
 import { useTvDataContext } from '../context/useTvDataContext'
 import { completionRate, findShow, formatRating, formatRuntime } from '../utils/derive'
 import { useTheme } from '../ThemeContext'
-import { SECTION_GAP, SPACING, cardStyle as baseCardStyle, completionColor, genreTagColor, ratingColor, statusTagColor } from '../constants/ui'
+import { SECTION_GAP, SPACING, cardStyle as baseCardStyle, completionColor, genreTagColor, ratingTierColors, statusTagColor } from '../constants/ui'
 import { LoadingState } from '../components/LoadingState'
 import { StatCard } from '../components/StatCard'
 import { ErrorState } from '../components/ErrorState'
@@ -87,7 +87,7 @@ export function ShowDetailPage() {
     )
   }
 
-  const color = ratingColor(series.voteAverage)
+  const badge = ratingTierColors(series.voteAverage, theme)
   const completion = completionRate([series])
   const allSeasons = Array.from({ length: series.seasons ?? 0 }, (_, i) => i + 1)
   const cardStyle = baseCardStyle(theme.isDark)
@@ -163,8 +163,8 @@ export function ShowDetailPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                background: color,
-                color: '#fff',
+                background: badge?.fill,
+                color: badge?.onFill,
                 padding: '3px 9px',
                 borderRadius: 6,
                 fontWeight: 700,
@@ -279,7 +279,7 @@ export function ShowDetailPage() {
                 <Text type="secondary" style={{ fontSize: 14 }}>Episode Completion</Text>
                 <Text strong style={{ fontSize: 14 }}>{completion}%</Text>
               </div>
-              <Progress percent={completion} strokeColor={completionColor(completion)} showInfo={false} size="small" />
+              <Progress percent={completion} strokeColor={completionColor(completion, theme)} showInfo={false} size="small" />
               <Text type="secondary" style={{ fontSize: 13 }}>
                 {series.episodesWatched} of {series.totalEpisodes} episodes
               </Text>

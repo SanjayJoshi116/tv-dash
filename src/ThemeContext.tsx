@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ConfigProvider, theme as antTheme } from 'antd'
 import type { Theme, ThemePreference } from './themes'
-import { DEFAULT_THEME_NAME, THEMES, parseThemePreference, resolveThemeName } from './themes'
-import { getSettings, saveSetting } from './utils/settings'
+import { DEFAULT_THEME_NAME, SYSTEM_THEME, THEMES, isThemePreference, parseThemePreference, resolveThemeName } from './themes'
+import { getSettings, saveSetting, subscribeSettings } from './utils/settings'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 
@@ -33,13 +33,25 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 
   const theme = THEMES[resolveThemeName(preference, prefersDark)]
 
-  // Native controls (Content's scrollbar, autofill) + overscroll match the theme. The
-  // index.html boot script sets the same two properties before the bundle loads.
+  // Native controls (Content's scrollbar, autofill) + overscroll match the theme. The boot
+  // script (vite.config.ts) sets the same three values before the bundle loads.
   useEffect(() => {
     const root = document.documentElement.style
     root.colorScheme = theme.isDark ? 'dark' : 'light'
     root.backgroundColor = theme.contentBg
+    // Browser / installed-app chrome — the meta is emitted by the boot plugin (vite.config.ts)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.headerBg)
   }, [theme])
+
+  // Theme changed in another tab: apply it (not re-saved — storage already holds it). No saved
+  // theme (a reset) → System; an invalid value is ignored, keeping the current theme. Unlike
+  // loadThemePreference, invalid ≠ missing here. setState runs in the storage callback, not
+  // in the effect body, and React skips the re-render when the value is unchanged.
+  useEffect(() => subscribeSettings(settings => {
+    const raw = settings.themeName
+    if (raw === undefined) setPreferenceState(SYSTEM_THEME)
+    else if (isThemePreference(raw)) setPreferenceState(raw)
+  }), [])
 
   const setPreference = useCallback((pref: ThemePreference) => {
     setPreferenceState(pref)

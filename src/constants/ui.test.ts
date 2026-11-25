@@ -1,13 +1,28 @@
 import { describe, it, expect } from 'vitest'
-import { STATUSES, completionColor, genreTagColor, ratingColor, sortStatuses, statusHex, statusTagColor } from './ui'
+import { STATUSES, completionColor, genreTagColor, ratingColor, ratingTierColors, sortStatuses, statusHex, statusTagColor, tier } from './ui'
+import { THEMES, THEME_NAMES } from '../themes'
 
-describe('ratingColor / completionColor', () => {
-  it('maps thresholds to green / amber / red', () => {
-    expect([ratingColor(8), ratingColor(6), ratingColor(5.9)]).toEqual(['#52c41a', '#faad14', '#f5222d'])
-    expect([completionColor(75), completionColor(40), completionColor(39)]).toEqual(['#52c41a', '#faad14', '#f5222d'])
+describe('tier / ratingTierColors / ratingColor / completionColor', () => {
+  it('tier maps thresholds to success / warning / danger', () => {
+    expect([tier(8, 8, 6), tier(7.99, 8, 6), tier(6, 8, 6), tier(5.9, 8, 6)]).toEqual(['success', 'warning', 'warning', 'danger'])
+    expect([tier(75, 75, 40), tier(74, 75, 40), tier(40, 75, 40), tier(39, 75, 40)]).toEqual(['success', 'warning', 'warning', 'danger'])
   })
-  it('ratingColor returns undefined for an unknown (null) rating', () => {
-    expect(ratingColor(null)).toBeUndefined()
+
+  it.each(THEME_NAMES)('reads colors from the given theme (%s)', name => {
+    const t = THEMES[name].tiers
+    const theme = THEMES[name]
+    expect([ratingColor(8, theme), ratingColor(6, theme), ratingColor(5.9, theme)]).toEqual([t.success.fill, t.warning.fill, t.danger.fill])
+    expect([ratingTierColors(8, theme), ratingTierColors(6, theme), ratingTierColors(5.9, theme)]).toEqual([t.success, t.warning, t.danger])
+    expect([completionColor(75, theme), completionColor(40, theme), completionColor(39, theme)]).toEqual([t.success.fill, t.warning.fill, t.danger.fill])
+  })
+
+  it('same tier, different theme → different color', () => {
+    expect(ratingColor(8.4, THEMES['Default Light'])).not.toBe(ratingColor(8.4, THEMES['Dracula']))
+  })
+
+  it('unknown (null) rating → undefined', () => {
+    expect(ratingColor(null, THEMES['Default Dark'])).toBeUndefined()
+    expect(ratingTierColors(null, THEMES['Default Dark'])).toBeUndefined()
   })
 })
 

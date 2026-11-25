@@ -4,13 +4,43 @@ export const SETTINGS_KEY = 'tvdash-settings'
 // tvdash-settings); defined here so resetSettings() knows every key the dashboard owns.
 export const SIDEBAR_KEY = 'tvdash-sidebar'
 
-export function getSettings(): Record<string, unknown> {
+type Settings = Record<string, unknown>
+
+// Raw stored value → settings: null (nothing saved) → {}; unparseable / not a plain object → null
+function parseSettings(raw: string | null): Settings | null {
+  if (raw == null) return {}
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}')
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {}
+    const parsed: unknown = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Settings) : null
   } catch {
-    return {}
+    return null
   }
+}
+
+export function getSettings(): Settings {
+  try {
+    return parseSettings(localStorage.getItem(SETTINGS_KEY)) ?? {}
+  } catch {
+    return {} // storage blocked
+  }
+}
+
+// Settings saved by *another* tab (browsers fire `storage` only in other documents). The
+// listener gets the new settings — {} when they were removed (reset / localStorage.clear()) —
+// and is NOT called for a corrupt value, so garbage never looks like a reset. Returns unsubscribe.
+export function subscribeSettings(listener: (settings: Settings) => void): () => void {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== SETTINGS_KEY && e.key !== null) return
+    try {
+      if (e.storageArea !== localStorage) return
+    } catch {
+      return // storage blocked
+    }
+    const settings = parseSettings(e.newValue) // null on removal and on clear()
+    if (settings) listener(settings)
+  }
+  window.addEventListener('storage', onStorage)
+  return () => window.removeEventListener('storage', onStorage)
 }
 
 export function saveSetting(key: string, value: unknown): void {

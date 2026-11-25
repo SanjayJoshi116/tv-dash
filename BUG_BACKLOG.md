@@ -13,9 +13,24 @@ Found during the 0.4.14 ideas pass and the Entry / root OpenSpec proposals (not 
 - [ ] `useTvData` — `HTTP 404: ` with a trailing colon when `statusText` is empty (HTTP/2); timeout message blames a missing file, which actually fails fast (IDEAS → Hooks P2)
 - [ ] `useTvData` — **verify:** on SPA hosts (and possibly Vite dev) a missing `/tv_series.csv` returns `200` + `index.html`, reported as a confusing "missing columns" error (IDEAS → Hooks P1)
 - [ ] CI — `node-version: 20` is past end-of-life (April 2026); the CLAUDE.md lock-file rule assumes it (IDEAS → Outside `src/` P1)
-- [ ] Rating badges (`ShowCard`, Show Detail) — white text on tier fills: 2.27:1 on green `#52c41a`, 1.9:1 on amber `#faad14` (WCAG AA needs 4.5:1) — unreadable in every theme. Fix planned in OpenSpec change `add-semantic-theme-colors` (per-theme text-on-fill color)
-- [ ] Default Light — rating / completion tier colors as text or strokes on `#f5f5f7`: green 2.08:1, amber 1.75:1 (red 3.75:1). Fix planned in `add-semantic-theme-colors` (darker Light tiers, e.g. `#237804` / `#ad6800` / `#cf1322`)
-- [ ] `index.html` — favicon `<link rel="icon" href="/tv.svg">` points at a file that doesn't exist (`public/` holds only the gitignored CSV; `tv.svg` was never committed), so every tab shows the browser's default icon. Add the SVG (the 📺 used in the sidebar) or drop the link. Found 2026-11-25 while checking `.gitignore`
+- [ ] Build copies everything in `public/` into `dist/` — including the personal `tv_series.csv.bak` (and `tv_series.csv` itself), so deploying `dist/` as-is publishes them. Not in the service-worker precache, but downloadable. Exclude backups from the copy (or move them out of `public/`), and decide how the real CSV gets deployed. Found 2026-11-25 while checking the PWA build output
+
+## Fixed in 0.4.23 (2026-11-25)
+
+- [x] `index.html` — favicon `<link rel="icon" href="/tv.svg">` pointed at a file that didn't exist — `public/tv.svg` added (indigo TV, also the source of the PWA icons)
+- [x] `RootErrorBoundary` — with the shell crashed, Reload kept serving the precached broken build: `UpdatePrompt` (inside the shell) couldn't apply the waiting fix and a plain reload doesn't activate it — Reload now calls `activateWaitingServiceWorker()` first (code review)
+- [x] `UpdatePrompt` — long-open tabs / installed windows never checked for a new build, and a dismissed prompt never came back (hourly + on-visible update check, prompt re-shown on visibility); Reload in one tab reloaded every other prompted tab unannounced, dropping a pending debounced filter save (`onNeedReload` — others are told instead) (code review)
+- [x] Service worker — `/tv_series.csv` opened in a tab got the app shell ("Page not found") via the navigation fallback (`navigateFallbackDenylist` for file extensions); a slow-but-online CSV fetch (> 3s) silently fell back to the cached copy (timeout 8s) (code review)
+- [x] `OfflineNotice` — "showing saved data" with nothing loaded (offline first visit) — "You're offline" then (code review)
+
+## Fixed in 0.4.21 (2026-11-25)
+
+- [x] Second dashboard tab kept the old theme until reloaded after a theme change in another tab — now synced live via the `storage` event (`subscribeSettings`); corrupt values ignored (OpenSpec `sync-settings-across-tabs`)
+
+## Fixed in 0.4.20 (2026-11-25)
+
+- [x] Rating badges (`ShowCard`, Show Detail) — white text on tier fills: 2.27:1 on green `#52c41a`, 1.9:1 on amber `#faad14` — now the theme's `tiers.*.onFill` (≥ 4.5:1 vs the fill, contract test + e2e) (OpenSpec `add-semantic-theme-colors`)
+- [x] Default Light — rating / completion tier colors on `#f5f5f7` were green 2.08:1, amber 1.75:1 — now `#237804` (5.13:1) / `#a05e00` (4.71:1) / `#cf1322` (5.12:1)
 
 ## Fixed in 0.4.19 (2026-11-25)
 

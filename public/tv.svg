@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- TV Dashboard icon: indigo TV on a transparent background (favicon + PWA icon source) -->
+  <path d="M22 6l10 9 10-9" fill="none" stroke="#6366f1" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="4" y="15" width="56" height="38" rx="8" fill="#6366f1"/>
+  <rect x="10" y="21" width="44" height="26" rx="4" fill="#1a1a2e"/>
+  <path d="M28 27v14l11-7z" fill="#f8f8f2"/>
+  <rect x="18" y="55" width="28" height="4" rx="2" fill="#6366f1"/>
+</svg>

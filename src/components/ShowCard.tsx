@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Card, Tag, Typography } from 'antd'
 import { StarFilled } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
-import { genreTagColor, ratingColor, STATUSES } from '../constants/ui'
+import { genreTagColor, ratingTierColors, STATUSES } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
+import { prefetchShowDetail } from '../routes/pageLoaders'
 import { activateOnKey } from '../utils/a11y'
 import { formatRating } from '../utils/derive'
 import { PosterThumb } from './PosterThumb'
@@ -18,7 +19,7 @@ interface Props {
 export const ShowCard = memo(function ShowCard({ series }: Props) {
   const navigate = useNavigate()
   const theme = useTheme()
-  const color = ratingColor(series.voteAverage)
+  const badge = ratingTierColors(series.voteAverage, theme)
 
   const handleSelect = () => navigate(`/shows/${series.tvId}`)
 
@@ -27,6 +28,8 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
       hoverable
       onClick={handleSelect}
       onKeyDown={activateOnKey(handleSelect)}
+      onMouseEnter={prefetchShowDetail}
+      onFocus={prefetchShowDetail}
       tabIndex={0}
       role="button"
       aria-label={series.name}
@@ -46,7 +49,7 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
           {series.voteAverage != null && (
             <Badge
               count={
-                <span style={{ background: color, color: '#fff', borderRadius: 4, padding: '2px 6px', fontSize: 12, fontWeight: 700 }}>
+                <span style={{ background: badge?.fill, color: badge?.onFill, borderRadius: 4, padding: '2px 6px', fontSize: 12, fontWeight: 700 }}>
                   <StarFilled style={{ marginRight: 3 }} />{formatRating(series.voteAverage)}
                 </span>
               }

@@ -69,6 +69,10 @@ jobs:
       - name: E2E tests
         run: npm run e2e
 
+      # Service worker / offline suite on a production build (vite build + preview)
+      - name: E2E tests (PWA)
+        run: npm run e2e:pwa
+
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v4

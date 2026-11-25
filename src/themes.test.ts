@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { SYSTEM_THEME, THEMES, THEME_NAMES, THEME_OPTIONS, isThemeName, parseThemePreference, resolveThemeName, type ThemePreference } from './themes'
+import { SYSTEM_THEME, THEMES, THEME_NAMES, THEME_OPTIONS, isThemeName, isThemePreference, parseThemePreference, resolveThemeName, type ThemePreference } from './themes'
+import { contrast } from './utils/contrast.fixture'
 
 describe('resolveThemeName', () => {
   it('System follows the OS color scheme', () => {
@@ -33,6 +34,13 @@ describe('isThemeName', () => {
   })
 })
 
+describe('isThemePreference', () => {
+  it('accepts System and every theme name, rejects anything else (incl. inherited keys)', () => {
+    for (const ok of [SYSTEM_THEME, ...THEME_NAMES]) expect(isThemePreference(ok)).toBe(true)
+    for (const bad of ['Solarized', '', 'system', 'constructor', undefined, null, 42]) expect(isThemePreference(bad)).toBe(false)
+  })
+})
+
 describe('parseThemePreference', () => {
   it('missing / non-string → System', () => {
     for (const raw of [undefined, null, 42, true, {}, ['Dracula']]) {
@@ -58,24 +66,9 @@ it('THEME_OPTIONS lists System first, then every theme', () => {
 
 // ── Theme contract: every theme is complete and readable on its own contentBg ──
 
-// WCAG 2.x relative luminance of #rgb / #rrggbb
-function luminance(hex: string): number {
-  let h = hex.replace('#', '')
-  if (h.length === 3) h = [...h].map(c => c + c).join('')
-  const [r, g, b] = [0, 2, 4].map(i => {
-    const c = parseInt(h.slice(i, i + 2), 16) / 255
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  })
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
-
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
-const COLOR_FIELDS = ['headerBg', 'contentBg', 'borderColor', 'posterFallbackBg', 'chartGrid', 'chartText', 'areaFill'] as const
+const COLOR_FIELDS = ['headerBg', 'contentBg', 'borderColor', 'posterFallbackBg', 'chartGrid', 'chartText', 'star'] as const
+const TIERS = ['success', 'warning', 'danger'] as const
 
 describe.each(THEME_NAMES)('theme contract: %s', name => {
   const theme = THEMES[name]
@@ -101,5 +94,17 @@ describe.each(THEME_NAMES)('theme contract: %s', name => {
 
   it.each(theme.chartColors)('chart color %s ≥ 3:1 vs contentBg (AA graphics)', color => {
     expect(contrast(color, theme.contentBg)).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each(TIERS)('tier %s: fill ≥ 3:1 vs contentBg, onFill ≥ 4.5:1 vs fill', tier => {
+    const { fill, onFill } = theme.tiers[tier]
+    expect(fill).toMatch(HEX)
+    expect(onFill).toMatch(HEX)
+    expect(contrast(fill, theme.contentBg)).toBeGreaterThanOrEqual(3)
+    expect(contrast(onFill, fill)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('star ≥ 3:1 vs contentBg (AA graphics)', () => {
+    expect(contrast(theme.star, theme.contentBg)).toBeGreaterThanOrEqual(3)
   })
 })

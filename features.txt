@@ -1,5 +1,5 @@
 TV Dashboard — Feature List
-Version 0.4.19
+Version 0.4.23
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
@@ -126,6 +126,9 @@ THEMES
   prefers-color-scheme: Default Dark ↔ Default Light, switches live
 - Theme choice (incl. System) persists across sessions via localStorage;
   an unknown saved value falls back to System
+- Theme choice syncs live across open dashboard tabs (no reload); a
+  corrupt value written elsewhere is ignored. Saved Shows filters apply
+  in another tab on its next visit to Shows, never mid-typing
 - Page root uses the theme's native color scheme + background — dark
   scrollbars / autofill / form controls in dark themes
 - No flash on load: an inline boot script (generated from themes.ts at
@@ -133,6 +136,31 @@ THEMES
 - All theme colors via Theme object — no hardcoded dark/light values
 - Every theme's chart colors and chart text meet WCAG AA contrast on its
   background (checked by a test)
+- Rating / completion colors (good / medium / poor) and the rating star
+  come from each theme — Dracula uses its own green / yellow / red,
+  Default Light darker readable shades; rating badge text meets 4.5:1
+  on its fill in every theme (dark text on bright fills in dark themes)
+- Browser / installed-app title bar color follows the active theme
+  (theme-color), already correct on first paint
+
+═══════════════════════════════════════
+INSTALL & OFFLINE (PWA, production build)
+═══════════════════════════════════════
+- Installable (manifest, 192 / 512 / maskable icons, standalone window,
+  Apple touch icon); TV favicon
+- Works offline after one visit: app shell precached, every page incl.
+  Show Detail deep links opens without a network
+- tv_series.csv network-first (8s timeout) with the last copy as offline
+  fallback; "Offline — showing saved data" notice while offline ("You're
+  offline" when nothing is cached yet)
+- New deploys offered via "New version available — Reload", never
+  swapped in mid-session; checked hourly + when the window comes back into
+  view; other open tabs are told instead of reloaded under you
+- The crash screen's Reload picks up a deployed fix (activates the waiting
+  service worker first)
+- Opening /tv_series.csv directly still gets the file, not the app
+- Posters not cached offline (placeholder shown); dev server has no
+  service worker
 
 ═══════════════════════════════════════
 CSV GENERATOR (series-search.py)
@@ -218,7 +246,10 @@ TECHNICAL
 - React.memo on ShowCard, ShowGrid, StatsBar, ChartsSection
 - useDeferredValue for search input (non-blocking filter)
 - Search filter persistence debounced 300ms (was synchronous per keystroke)
-- Route chunks (Shows/Statistics/ShowDetail) idle-prefetched after mount
+- Route chunks idle-prefetched after mount — skipped under Data Saver or
+  a 2G connection; hovering/focusing a nav item (touch-start on the mobile
+  bar) or a show card / Dashboard show row loads that page's code first,
+  each chunk at most once
 - Recharts ResponsiveContainer debounce={200} on all 14 charts
 - cardShadow(isDark) shared helper in constants/ui.ts — one shadow
   formula used by Dashboard, FilterBar, ChartsSection, StatsBar, and

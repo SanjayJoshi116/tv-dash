@@ -1,30 +1,13 @@
-import type { Page } from '@playwright/test'
-import { test, expect, content, holdRoute, selectedTheme, themeSelect } from './fixtures'
+import { test, expect, content, expectDocTheme, holdRoute, markNoReload, rgb, saveTheme, selectedTheme, stillNoReload, themeSelect } from './fixtures'
 import { THEMES } from '../src/themes'
 import { SETTINGS_KEY } from '../src/utils/settings'
 
 // contentBg as the computed rgb() string
-function rgb(hex: string): string {
-  const n = parseInt(hex.slice(1), 16)
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
-}
 const BG = {
   dark: rgb(THEMES['Default Dark'].contentBg),
   light: rgb(THEMES['Default Light'].contentBg),
   dracula: rgb(THEMES['Dracula'].contentBg),
 }
-
-async function expectDocTheme(page: Page, scheme: 'dark' | 'light', bg: string) {
-  const html = page.locator('html')
-  await expect(html).toHaveCSS('color-scheme', scheme)
-  await expect(html).toHaveCSS('background-color', bg)
-}
-
-// Runs before every page load (incl. reloads) — use only where the saved value must stay fixed
-async function saveTheme(page: Page, themeName: string) {
-  await page.addInitScript(([key, name]) => localStorage.setItem(key, JSON.stringify({ themeName: name })), [SETTINGS_KEY, themeName] as const)
-}
-
 
 test('dev server serves index.html with the theme boot script', async ({ request }) => {
   const html = await (await request.get('/')).text()
@@ -55,13 +38,13 @@ test.describe('System theme follows the OS', () => {
     await page.emulateMedia({ colorScheme: 'light' })
     await page.goto('/')
     await expectDocTheme(page, 'light', BG.light)
-    await page.evaluate(() => { (window as unknown as { __noReload: boolean }).__noReload = true })
+    await markNoReload(page)
     await page.emulateMedia({ colorScheme: 'dark' })
     await expectDocTheme(page, 'dark', BG.dark)
     await expect(content(page)).toHaveCSS('background-color', BG.dark)
     await page.emulateMedia({ colorScheme: 'light' })
     await expectDocTheme(page, 'light', BG.light)
-    expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true)
+    expect(await stillNoReload(page)).toBe(true)
   })
 
   test('saved Dracula ignores OS switches', async ({ page }) => {
@@ -102,6 +85,7 @@ test('first paint: saved Default Light applies before the app bundle runs', asyn
   const release = await holdRoute(page, '**/src/main.tsx')
   await page.goto('/', { waitUntil: 'commit' })
   await expectDocTheme(page, 'light', BG.light)
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', THEMES['Default Light'].headerBg)
   await expect(page.locator('#root')).toBeEmpty() // app has not mounted yet
   release()
   await expect(selectedTheme(page)).toHaveText('Default Light')

@@ -124,7 +124,8 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
   const reducedMotion = usePrefersReducedMotion()
   const screens = Grid.useBreakpoint()
 
-  const { chartColors, chartGrid: gridColor, chartText: textColor, areaFill } = theme
+  const { chartColors, chartGrid: gridColor, chartText: textColor } = theme
+  const areaFill = theme.token.colorPrimary
   const cardStyle = baseCardStyle(theme.isDark)
 
   const chartHeight = screens.md ? 280 : 220
@@ -406,7 +407,7 @@ export const ChartsSection = memo(function ChartsSection({ data }: Props) {
               <Tooltip formatter={(v: number) => [`${v}%`, 'Completion']} />
               <Bar isAnimationActive={!reducedMotion} dataKey="pct" name="Completion" radius={[0, 3, 3, 0]}>
                 {genreCompletion.map((entry, i) => (
-                  <Cell key={i} fill={completionColor(entry.pct)} />
+                  <Cell key={i} fill={completionColor(entry.pct, theme)} />
                 ))}
               </Bar>
             </BarChart>

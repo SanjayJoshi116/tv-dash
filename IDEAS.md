@@ -2,7 +2,7 @@
 
 Improvement ideas per module (top), then the finished review tracker (bottom). Bugs live in [BUG_BACKLOG.md](BUG_BACKLOG.md) — the 9 bug-like findings from the ideas pass are listed there too, each pointing back to its idea here.
 
-_Last updated 2026-11-25 (v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 174 unit, 46 e2e (Playwright, CI), 37 generator checks (`npm run test:gen`, local).
+_Last updated 2026-11-25 (v0.4.23 — installable PWA / offline (network-first CSV, update prompt, theme-color), then a simplify + code-review pass over 0.4.20–0.4.23; v0.4.22 — smarter route prefetch (Data Saver / 2G aware, hover/focus intent); v0.4.21 — cross-tab theme sync; v0.4.20 — semantic theme colors (per-theme rating/completion tiers, readable badges); v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 210 unit, 56 + 4 PWA e2e (Playwright, CI — `npm run e2e` / `npm run e2e:pwa`), 37 generator checks (`npm run test:gen`, local).
 
 ## Open follow-ups
 
@@ -18,15 +18,13 @@ Scope: `main.tsx`, `App.tsx`, `ThemeContext.tsx`, `themes.ts`, `setupTests.ts`.
 #### P1
 
 #### P2
-- **Semantic theme tokens** — rating/completion/status colors are fixed hexes in `constants/ui.ts`, so Dracula shows stock green/amber/red next to its own palette. Add `success` / `warning` / `danger` (and maybe `star`) to `Theme`; `tierColor` reads them. Same pass: derive `areaFill` = `token.colorPrimary` (always equal today).
-- **Cross-tab sync** — listen to the `storage` event for `tvdash-settings`; theme (and saved filters) changed in one tab apply in the others. Fits naturally inside `settings.ts` as a `subscribeSettings()` helper.
-- **Smarter prefetch** — idle prefetch loads every page chunk unconditionally. Skip it when `navigator.connection?.saveData` or `effectiveType` is `2g`; optionally prefetch on nav hover/focus instead (`PAGE_LOADERS` is already in place), and have `ShowCard` hover/focus prefetch the Show Detail chunk so the first open has no Suspense flash.
 - **Data router (`createBrowserRouter`)** — on react-router v7: route-level `lazy`, `errorElement` (could replace parts of `RouteErrorBoundary`'s manual pathname reset), `useNavigation()` for a top progress bar while a chunk loads. Spike first — `Content` (not window) is the scroll container, so built-in `ScrollRestoration` won't help directly.
-- **Installable PWA / offline** — the app is static and already mobile-first (bottom nav). `vite-plugin-pwa` + manifest + service worker caching chunks and `tv_series.csv` (network-first) → home-screen icon, works offline. `<meta name="theme-color">` from the active theme comes with it.
+
+- **Single route table** — `App`'s `<Route>`s, `NAV_ITEMS` (`key` + `page`) and `PAGE_LOADERS` are three hand-synced lists since v0.4.22. One table in `routes/` (`{ path, page, nav?: { label, icon } }`) that `App` maps to routes and `AppLayout` filters for nav would remove the `page` field / `MENU_ITEMS` stripping. Also a candidate: a `showLinkProps(id)` helper for the three clickable show elements (click / key / prefetch / role). From the v0.4.23 simplify pass.
 
 #### P3
 - **Global keyboard shortcuts** — `g d` / `g s` / `g t` navigate, `/` focuses Shows search, `t` cycles theme, `?` shows a cheat-sheet modal. One reusable `useHotkeys(map)` hook (ignored while typing in inputs), also used by the quick switcher and grid navigation (Components).
-- **Custom accent theme** — "Custom" theme where the user picks one accent color; derive `chartColors` (hue rotation), `areaFill`, `colorPrimary` and persist via `saveSetting`. Low code thanks to antd's algorithms.
+- **Custom accent theme** — "Custom" theme where the user picks one accent color; derive `chartColors` (hue rotation), `tiers`, `colorPrimary` and persist via `saveSetting`. Low code thanks to antd's algorithms.
 - **More built-in themes** — high-contrast (a11y), Solarized, Nord, OLED black. Cheap once the theme contract test exists.
 - **URL theme override** — `?theme=Dracula` (not persisted) for screenshots / README images and e2e theme coverage.
 - **Base path from `import.meta.env.BASE_URL`** — `BrowserRouter basename` + CSV fetch via `new URL('tv_series.csv', import.meta.env.BASE_URL)` (path in one exported constant shared with e2e route interception) so the build can be hosted under a sub-path (GitHub Pages) without code edits; add a 404.html SPA fallback note.
@@ -204,7 +202,7 @@ Scope: `ui.ts` (+ `ui.test.ts`). Checked against the real CSV (159 shows): genre
 - **Theme-owned card style** — `cardShadow(isDark)` / `cardStyle(isDark)` take a boolean and branch; theme-varying values belong on `Theme` (CLAUDE.md: "every color that varies by theme must come from the Theme object"). Move `cardShadow` (and radius) into each theme — Dracula could get a purple-tinted shadow — and `cardStyle(theme)` just reads it.
 - **Status icon + description** — extend `STATUSES` with an icon (e.g. `SyncOutlined` Returning, `CheckOutlined` Ended, `StopOutlined` Canceled) and a one-line tooltip ("Canceled — no further seasons planned"). Tags and the donut legend then carry meaning beyond color (helps the colorblind point too).
 - **Sort table with direction** — `SORT_LABELS` bakes "↓" into labels; make each entry `{ label, field, defaultDir }` so the Pages asc/desc toggle and the table view share one definition, and labels drop the arrow glyph.
-- **Collision check between palettes** — Action & Adventure and Canceled are both red, Comedy gold equals `STAR_COLOR`, Returning Series green equals the "good" rating tier. A test (or doc table) listing semantic colors that must not coincide on the same screen (status vs genre on Show Detail).
+- **Collision check between palettes** — Action & Adventure and Canceled are both red, Comedy gold equals Default Dark's `theme.star`, Returning Series green equals the "good" rating tier. A test (or doc table) listing semantic colors that must not coincide on the same screen (status vs genre on Show Detail).
 
 #### P3
 - **Split `ui.ts`** — it mixes layout (`SPACING`, gutters), color tables (genres, statuses, tiers), sort config and a breakpoint helper. `layout.ts` / `colors.ts` / `sort.ts` with `ui.ts` re-exporting during migration.
@@ -287,6 +285,18 @@ Finished work, kept for history. ✅ done · 🟡 in progress · ⬜ not started
 7. ~~Optional cleanups~~ — ✅ v0.4.13: CSV `N/A` → `''` (114 cells, backup `public/tv_series.csv.bak`), `status: KnownStatus | (string & {})`, `tsc -b` build.
 
 ### Shipped improvement ideas
+
+#### Entry / root — ✅ v0.4.23 (OpenSpec `add-pwa-offline`)
+- ~~**Installable PWA / offline**~~ ✅ — the app is static and already mobile-first (bottom nav). `vite-plugin-pwa` + manifest + service worker caching chunks and `tv_series.csv` (network-first) → home-screen icon, works offline. `<meta name="theme-color">` from the active theme comes with it. Shipped with a Reload prompt for new versions (`registerType: 'prompt'`), an offline notice, and a `pwa` Playwright project on `vite preview`; posters deliberately not cached.
+
+#### Entry / root — ✅ v0.4.22 (OpenSpec `smarter-route-prefetch`)
+- ~~**Smarter prefetch**~~ ✅ — idle prefetch loaded every page chunk unconditionally. Now skipped under Data Saver / 2G (`shouldIdlePrefetch`); nav items prefetch on hover/focus (touch-start on `BottomNav`), and `ShowCard` / Dashboard show rows prefetch the Show Detail chunk so the first open has no Suspense flash. Loaders moved to `src/routes/pageLoaders.ts`.
+
+#### Entry / root — ✅ v0.4.21 (OpenSpec `sync-settings-across-tabs`)
+- ~~**Cross-tab sync**~~ ✅ — listen to the `storage` event for `tvdash-settings`; theme changed in one tab applies in the others. Shipped as `subscribeSettings()` in `settings.ts`; saved filters deliberately **not** live (would overwrite typing in an open Shows page) — they apply on the next visit. Corrupt values ignored, a reset propagates.
+
+#### Entry / root — ✅ v0.4.20 (OpenSpec `add-semantic-theme-colors`)
+- ~~**Semantic theme tokens**~~ ✅ — rating/completion colors were fixed hexes in `constants/ui.ts`, so Dracula showed stock green/amber/red next to its own palette (and Default Light's were 1.75–2.08:1, badges white-on-amber 1.9:1). Now `Theme.tiers` (`success` / `warning` / `danger`, each `{ fill, onFill }`) + `star`, covered by the contract test; `areaFill` removed (= `token.colorPrimary`). Status colors stay on antd Tag presets (separate idea).
 
 #### Entry / root — ✅ v0.4.15 (OpenSpec `add-system-theme-and-color-scheme`)
 - ~~**Native `color-scheme` per theme**~~ ✅ — set `document.documentElement.style.colorScheme` (and `<html>` background) from `activeTheme.isDark` in `App`. Today scrollbars, autofill and native form controls stay light inside the dark themes (very visible on Windows, where `Content` is the scroll container).
@@ -429,7 +439,7 @@ Skipped rows console-only (important — now `CsvWarningBanner` + all-skipped fa
 CSV → plain strings/numbers only; banner text rendered by React (no `dangerouslySetInnerHTML` in `src/`); `posterUrl` only in `<img src>`, no CSV-built `href`; `settings.ts` `__proto__` inert.
 
 #### Constants (`src/constants/`) — ✅ Review complete (2026-11-24: simplify, code-review, security-review)
-- `ui.ts` — colors, spacing, `cardShadow` / `cardStyle` (v0.4.11), `responsiveColumns`; single exported `STATUSES` table (literal access, v0.4.13); `statusHex`/`statusTagColor`/`genreTagColor` own-key lookups; `sortStatuses`; `tierColor`-based `ratingColor` (accepts `null`, v0.4.13) / `completionColor`; `STAR_COLOR`
+- `ui.ts` — colors, spacing, `cardShadow` / `cardStyle` (v0.4.11), `responsiveColumns`; single exported `STATUSES` table (literal access, v0.4.13); `statusHex`/`statusTagColor`/`genreTagColor` own-key lookups; `sortStatuses`; `tierColor`-based `ratingColor` (accepts `null`, v0.4.13) / `completionColor`; `STAR_COLOR` (v0.4.20: replaced by theme-driven `tier` / `ratingTierColors` / `ratingColor(v, theme)` / `completionColor(v, theme)` + `theme.star`)
 - `ui.test.ts` (added v0.4.8)
 
 ##### Simplify — ✅ done in v0.4.8

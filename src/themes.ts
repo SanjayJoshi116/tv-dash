@@ -12,8 +12,13 @@ type ThemeDef = {
   chartColors: readonly string[]
   chartGrid: string
   chartText: string
-  areaFill: string
+  // Good / medium / poor values (ratings, completion): fill ≥ 3:1 vs contentBg, onFill ≥ 4.5:1 vs fill
+  tiers: Record<Tier, { fill: string; onFill: string }>
+  // Star icon next to ratings in compact lists (same for every rating) — ≥ 3:1 vs contentBg
+  star: string
 }
+
+export type Tier = 'success' | 'warning' | 'danger'
 
 export type Theme = ThemeDef & { name: ThemeName }
 
@@ -28,7 +33,12 @@ const THEME_DEFS = {
     chartColors: ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6', '#f97316', '#84cc16'],
     chartGrid: '#333',
     chartText: '#ccc',
-    areaFill: '#6366f1',
+    tiers: {
+      success: { fill: '#52c41a', onFill: '#141414' },
+      warning: { fill: '#faad14', onFill: '#141414' },
+      danger: { fill: '#f5222d', onFill: '#141414' },
+    },
+    star: '#faad14',
   },
   'Default Light': {
     isDark: false,
@@ -40,7 +50,12 @@ const THEME_DEFS = {
     chartColors: ['#4f46e5', '#7c3aed', '#db2777', '#b45309', '#059669', '#2563eb', '#dc2626', '#0d9488', '#ea580c', '#4d7c0f'],
     chartGrid: '#e0e0e0',
     chartText: '#1a1a1a',
-    areaFill: '#4f46e5',
+    tiers: {
+      success: { fill: '#237804', onFill: '#ffffff' },
+      warning: { fill: '#a05e00', onFill: '#ffffff' },
+      danger: { fill: '#cf1322', onFill: '#ffffff' },
+    },
+    star: '#a05e00',
   },
   'Dracula': {
     isDark: true,
@@ -52,7 +67,12 @@ const THEME_DEFS = {
     chartColors: ['#bd93f9', '#ff79c6', '#50fa7b', '#f1fa8c', '#8be9fd', '#ffb86c', '#ff5555', '#6272a4', '#94e6ff', '#45b3e0'],
     chartGrid: '#44475a',
     chartText: '#f8f8f2',
-    areaFill: '#bd93f9',
+    tiers: {
+      success: { fill: '#50fa7b', onFill: '#21222c' },
+      warning: { fill: '#f1fa8c', onFill: '#21222c' },
+      danger: { fill: '#ff5555', onFill: '#21222c' },
+    },
+    star: '#f1fa8c',
   },
 } as const satisfies Record<string, ThemeDef>
 
@@ -84,9 +104,14 @@ export function isThemeName(name: unknown): name is ThemeName {
   return typeof name === 'string' && Object.prototype.hasOwnProperty.call(THEME_DEFS, name)
 }
 
-// Saved `themeName` → preference: 'System' or a known theme, anything else → 'System'
+// 'System' or a known theme name (own-key check, like isThemeName)
+export function isThemePreference(raw: unknown): raw is ThemePreference {
+  return raw === SYSTEM_THEME || isThemeName(raw)
+}
+
+// Saved `themeName` → preference: anything invalid → 'System'
 export function parseThemePreference(raw: unknown): ThemePreference {
-  return raw === SYSTEM_THEME || isThemeName(raw) ? raw : SYSTEM_THEME
+  return isThemePreference(raw) ? raw : SYSTEM_THEME
 }
 
 // Preference + OS dark preference → the theme name to render
