@@ -55,7 +55,7 @@ test('?reset clears saved settings before the app starts and drops only that par
   await expect(page.locator('#shows-search')).toHaveValue('')
   await expect(themeSelect(page)).toContainText('System')
   // Saved search 'frac' would leave 1 card — all 5 means the filters were reset
-  await expect(page.locator('.ant-layout-content [role=button][aria-label]')).toHaveCount(5)
+  await expect(page.locator('.ant-layout-content [role=button][aria-label]')).toHaveCount(6)
   expect(await stored(page)).toEqual([null, null])
 })
 

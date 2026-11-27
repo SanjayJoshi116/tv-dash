@@ -57,7 +57,7 @@ test('works offline after one visit: every page, cached data, offline notice', a
 
   await spaNavigate(page, '/shows')
   await expect(page.locator('#shows-search')).toBeVisible()
-  await expect(content(page).locator('[role=button][aria-label]')).toHaveCount(5)
+  await expect(content(page).locator('[role=button][aria-label]')).toHaveCount(6)
   await spaNavigate(page, '/stats')
   await expect(page.locator('.ant-tabs')).toBeVisible()
 

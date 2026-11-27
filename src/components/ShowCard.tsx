@@ -5,8 +5,7 @@ import { StarFilled } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
 import { genreTagColor, ratingTierColors, STATUSES } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
-import { prefetchShowDetail } from '../routes/pageLoaders'
-import { activateOnKey } from '../utils/a11y'
+import { showLinkProps } from '../utils/showLink'
 import { formatRating } from '../utils/derive'
 import { PosterThumb } from './PosterThumb'
 
@@ -21,17 +20,10 @@ export const ShowCard = memo(function ShowCard({ series }: Props) {
   const theme = useTheme()
   const badge = ratingTierColors(series.voteAverage, theme)
 
-  const handleSelect = () => navigate(`/shows/${series.tvId}`)
-
   return (
     <Card
       hoverable
-      onClick={handleSelect}
-      onKeyDown={activateOnKey(handleSelect)}
-      onMouseEnter={prefetchShowDetail}
-      onFocus={prefetchShowDetail}
-      tabIndex={0}
-      role="button"
+      {...showLinkProps(series.tvId, navigate)}
       aria-label={series.name}
       style={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 10, overflow: 'hidden' }}
       styles={{ body: { padding: 12, display: 'flex', flexDirection: 'column', flex: 1 } }}

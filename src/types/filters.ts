@@ -10,10 +10,14 @@ type AssertNumeric<K extends NumericField> = K
 export type NumericSortKey = AssertNumeric<'voteAverage' | 'popularity' | 'firstAirYear' | 'totalRuntimeWatched'>
 export type SortKey = 'recentFirst' | 'name' | NumericSortKey
 
+// Watch progress from episodesWatched vs totalEpisodes (showFilters.ts progressOf); 'all' = no filter
+export type Progress = 'all' | 'notStarted' | 'inProgress' | 'completed'
+
 export interface Filters {
   search: string
   genres: TvSeries['genres']
   // '' = no status filter (not a real status), so not typed as TvSeries['status']
   status: string
   sortBy: SortKey
+  progress: Progress
 }

@@ -1,5 +1,5 @@
 TV Dashboard — Feature List
-Version 0.4.30
+Version 0.4.37
 
 ═══════════════════════════════════════
 DASHBOARD PAGE
@@ -11,11 +11,16 @@ DASHBOARD PAGE
 - Highlights row (3 cards): Most Watched, Top Rated, Newest Release —
   poster + name + detail, click through to Show Detail
 - Continue Watching: shows with partial completion (< 100%); "New eps"
-  tag on cards whose show status is "Returning Series"
+  tag on cards whose show status is "Returning Series"; "View all" opens
+  every in-progress show on Shows; time left per row ("· 3h 20m left",
+  hidden when the runtime is unknown); Most watched / Least time left
+  order toggle (per visit) — unknown runtime last
 - Recently Watched: last 3 entries from CSV (row-order based)
 - Sidebar tabs: Top Genres / Watch Status / Ratings (rating-distribution
-  mini bar chart), icon-labeled
+  mini bar chart), icon-labeled; each Top Genres / Watch Status bar is a
+  link to Shows filtered to that genre / status (count matches)
 - Not Started: compact clickable list, unwatched sorted by rating;
+  "View all" opens Shows filtered to Not started;
   "All caught up" fallback card when every show has been started
 - Explore More CTA row: links to Shows and Statistics pages
 - All poster thumbnails fall back to placeholder on empty OR broken/404 URL
@@ -34,12 +39,26 @@ SHOWS PAGE
 - Filter by genre (multi-select) and status — both option lists built from
   the loaded CSV (no options that always give 0 results); statuses in a
   fixed order (Returning Series, Ended, Canceled, …), unknown ones last
+- Filter by watch progress: Not started / In progress / Completed (same
+  rules as the Dashboard sections); older saved filters load as All
+- Empty result → "Clear filters" button (keeps the sort order)
 - Filter bar in a themed Card (shadow + radius); result-count row
   ("X of Y shows") with closable filter chips and a Reset filters link
 - All filters + sort persist across sessions via localStorage; last change
   flushed on navigate-away; saved genres/statuses no longer in the CSV are dropped
 - Pagination with configurable page size (12/24/48/96); bar stays visible
   whenever results exceed 12, so the size picker is always reachable
+- Filters, sort, page and page size live in the URL (?q=, ?genre=, ?status=,
+  ?progress=, ?sort=, ?page=, ?size= — defaults left out): a filtered view can be shared
+  or bookmarked; a link's filters win over saved ones, an empty /shows is
+  filled from the saved filters when you arrive (once — clicking Shows in the
+  nav later gives the unfiltered list)
+- Browser Back undoes a filter / sort / page change (typing a search is one
+  step, not one per letter); bad or stale values in a link are corrected
+  (a repeated genre counts once); a bookmarked page number survives a failed
+  data load and Retry
+- Back / Forward returns to the scroll position of that page (e.g. page 3 →
+  a show → Back lands where you were); other navigation starts at the top
 - Show cards: poster image, rating badge, status indicator, genre tags,
   rounded corners (radius 10) for visual consistency with other pages;
   poster falls back to placeholder on empty OR broken/404 URL
@@ -59,9 +78,15 @@ SHOW DETAIL PAGE
   west of UTC; invalid dates show –),
   networks, creators
 - Watch History card: episode completion progress bar, season-by-season
-  tracker with check/clock icons (watched / not watched)
+  tracker with check/clock icons (watched / not watched); "Time left"
+  (remaining episodes × runtime) and "Next · Season N", each hidden when
+  unknown or nothing is left
 - Cast: top 15 actors with overflow count
 - Keywords: up to 20 tags
+- Everything is a link: genre and status tags open Shows filtered to them;
+  network, creator (one link each), actor and keyword open Shows searched
+  for that name. Real links — keyboard, Ctrl / middle-click for a new tab;
+  hovering one preloads the Shows page
 - Poster fallback: styled VideoCameraOutlined placeholder; also triggers
   on a broken/404 poster URL via <img onError>, not just an empty one
 - "Show not found" now an Empty-based state (was a bare button)
@@ -151,7 +176,8 @@ THEMES
   an unknown saved value falls back to System
 - Theme choice syncs live across open dashboard tabs (no reload); a
   corrupt value written elsewhere is ignored. Saved Shows filters apply
-  in another tab on its next visit to Shows, never mid-typing
+  in another tab on its next visit to Shows (unless its URL has filters),
+  never mid-typing
 - Page root uses the theme's native color scheme + background — dark
   scrollbars / autofill / form controls in dark themes
 - No flash on load: an inline boot script (generated from themes.ts at
@@ -267,7 +293,7 @@ TECHNICAL
 - 100% React inline styles (no CSS files in src/)
 - All Ant Design styling via ConfigProvider tokens
 - All localStorage via settings.ts (tvdash-settings key)
-- Filters, sort, theme persist across sessions (page size is per-visit)
+- Filters, sort, theme persist across sessions (page / page size are URL-only)
 - settings.ts tolerates corrupt JSON / blocked storage (never throws)
 - Unknown values (blank / 0 / N/A year, rating, seasons, language, age
   rating) show '–' or are hidden — never "0", "★ 0.0" or an "N/A" tag;

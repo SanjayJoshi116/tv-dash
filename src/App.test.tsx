@@ -66,6 +66,14 @@ describe('routes mount their page', () => {
     expect(await screen.findByRole('button', { name: /Better Call Saul/ })).toBeTruthy()
   })
 
+  it('/shows?q=saul → Shows filtered by the URL', async () => {
+    renderAt('/shows?q=saul')
+    await header('Shows')
+    expect(await screen.findByRole('button', { name: /Better Call Saul/ })).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Breaking Bad/ })).toBeNull())
+    expect((screen.getByRole('searchbox', { name: 'Search shows' }) as HTMLInputElement).value).toBe('saul')
+  })
+
   it('/shows/2 → that show', async () => {
     renderAt('/shows/2')
     expect(await screen.findByRole('heading', { level: 3, name: 'Better Call Saul' })).toBeTruthy()

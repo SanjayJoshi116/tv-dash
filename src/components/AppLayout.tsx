@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
 import { Button, Grid, Layout, Menu, Typography } from 'antd'
-import { BarChartOutlined, DashboardOutlined, MenuFoldOutlined, MenuUnfoldOutlined, VideoCameraOutlined } from '@ant-design/icons'
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { ThemeToggle } from './ThemeToggle'
 import { NavProgress } from './NavProgress'
 import { GlobalShortcuts } from './GlobalShortcuts'
@@ -12,26 +12,32 @@ import { BottomNav, BOTTOM_NAV_HEIGHT, type NavItem } from './BottomNav'
 import { useTvDataContext } from '../context/useTvDataContext'
 import { useTheme } from '../ThemeContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useScrollRestoration } from '../hooks/useScrollRestoration'
 import { APP_NAME, normalizePath, pageTitleFor } from '../utils/pageTitle'
 import { SIDEBAR_KEY } from '../utils/settings'
 import { prefetchPage } from '../routes/pageLoaders'
+import { NAV_PAGES } from '../routes/pages'
 
 const { Sider, Header, Content } = Layout
 const { Title } = Typography
 
-// Every route needs an entry here (or an explicit case in pageTitleFor) — anything else is
-// titled "Page not found" in the header and the browser tab. `page` = the code prefetched on
-// hover / focus (sidebar) or touch-start / focus (BottomNav).
-const NAV_ITEMS: NavItem[] = [
-  { key: '/', label: 'Dashboard', icon: <DashboardOutlined />, page: 'dashboard' },
-  { key: '/shows', label: 'Shows', icon: <VideoCameraOutlined />, page: 'shows' },
-  { key: '/stats', label: 'Statistics', icon: <BarChartOutlined />, page: 'statistics' },
-]
+// From the PAGES table (routes/pages.ts): every route needs a `nav` there (or an explicit case in
+// pageTitleFor) — anything else is titled "Page not found" in the header and the browser tab.
+// `page` = the code prefetched on touch-start / focus (BottomNav).
+const NAV_ITEMS: NavItem[] = NAV_PAGES.map(({ page, path, nav: { label, icon: Icon } }) => ({
+  key: path,
+  label,
+  icon: <Icon />,
+  page,
+}))
 
-// antd Menu items: `page` stripped (it would land on the <li> as an unknown DOM attribute);
-// rc-menu focuses the <li> during keyboard navigation, so onFocus covers arrow keys too
-const MENU_ITEMS = NAV_ITEMS.map(({ page, ...item }) => ({
-  ...item,
+// antd Menu items, built from the table without a `page` field (it would land on the <li> as an
+// unknown DOM attribute); rc-menu focuses the <li> during keyboard navigation, so onFocus covers
+// arrow keys too
+const MENU_ITEMS = NAV_PAGES.map(({ page, path, nav: { label, icon: Icon } }) => ({
+  key: path,
+  label,
+  icon: <Icon />,
   onMouseEnter: () => prefetchPage(page),
   onFocus: () => prefetchPage(page),
 }))
@@ -58,11 +64,9 @@ export function AppLayout() {
     try { localStorage.setItem(SIDEBAR_KEY, String(v)) } catch { /* ignore storage errors */ }
   }
 
-  // Content is the scroll container (not window), so the router never resets it.
-  // (Bottom-nav visibility lives in BottomNav, mounted only below lg.)
-  useEffect(() => {
-    contentRef.current?.scrollTo(0, 0)
-  }, [location.pathname])
+  // Content is the scroll container (not window): top on new navigations, restored on Back /
+  // Forward. (Bottom-nav visibility lives in BottomNav, mounted only below lg.)
+  useScrollRestoration(contentRef)
 
   // Exact match — /shows/12/extra is a 404, not a show detail page
   const showMatch = useMatch('/shows/:id')

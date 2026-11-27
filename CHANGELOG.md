@@ -1,5 +1,133 @@
 # Changelog
 
+## [0.4.37] — 2026-11-27
+
+Page structure refactor (OpenSpec `refactor-page-structure`). No behavior change.
+
+### Changed
+
+- **`<DataGate>`** (`src/components/DataGate.tsx`): the one loading → error → data prelude. Dashboard, Shows, Show Detail and Statistics render through it (same spinner tips, same "Failed to load data" + Retry); Dashboard and Shows compute their memos in an inner content component, so they no longer run while loading
+- **`DashboardPage` split** (395 → 153 lines) into `src/pages/dashboard/`: `ShowRowCard`, `Highlights`, `ContinueWatching`, `RecentlyWatched`, `SidebarTabs`, `NotStartedList`, `ExploreCards` — data as props, page keeps memos + layout. Same DOM, ids, labels, prefetch, keyboard and reduced-motion handling
+
+### Added (tests)
+
+- `DataGate.test.tsx` (5: loading, error + Retry, data, loading over error); `showFilters.test.ts` `hasActiveFilters` / `clearFilters` / `continueWatching` (5) — 623 unit (after the review fixes), 124 e2e
+
+### Fixed (code review of 0.4.31–0.4.37)
+
+- Shows: saved filters seeded an empty URL again later in the same visit — after paging, clicking Shows in the nav brought the saved filters back instead of the unfiltered view. The seed is now used once per mount (cleared as soon as the URL carries filters)
+- Shows: a failed CSV load rewrote a bookmarked `?page=N` to page 1 (the page clamp ran against the empty error state); Retry now lands on the bookmarked page
+- Back / Forward scroll restore could be cancelled when Shows corrected its URL in the same frame (e.g. a genre dropped by a data refetch)
+- A hand-edited negative Episodes Watched counted as "In progress" (and could divide by zero in Continue Watching's order); it's "Not started" now
+- `?genre=Drama&genre=Drama` selected Drama twice (duplicate React keys in the genre select); genres are deduped
+- e2e: option labels are regex-escaped (`exactText`), so a label with `(`, `+` or `?` matches literally
+
+### Added (tests, review)
+
+- `showFilters.test.ts` (genre dedupe, negative counts), `shows-url.spec.ts` (seed once per mount, failed load keeps the page — both fail without their fix)
+
+### Simplify pass (0.4.31–0.4.37)
+
+- One `hasActiveFilters` / `clearFilters` in `showFilters.ts` (FilterBar Reset and Shows "Clear filters" had their own copies); Continue Watching ordering is `continueWatching()` there, unit-tested (was inline in the page)
+- Dashboard "View all" targets come from `showsLink({ progress })`, not hand-typed `/shows?progress=…`; Continue Watching % via `completionRate`
+- `DataGateState` = `Pick` of the context type; `SidebarTabs` memoized (the order toggle no longer re-renders its chart); `renderBar`'s always-passed link made required; `PageKey` imported from `routes/pages` (re-export dropped), page-table helper types un-exported; Shows mount parses the URL once
+- Tests: shared `makeSeries` (`src/utils/series.fixture.ts`); e2e `showCards` / `showCardNames` / `continueSection` / `selectById` / `pickOption` / exported `row()` in `fixtures.ts` instead of per-spec copies; `shows-url`'s 60-row CSV built with `row()` instead of string replaces
+
+## [0.4.36] — 2026-11-27
+
+Time left (OpenSpec `add-time-left`).
+
+### Added
+
+- **Time left on Show Detail:** the Watch History card shows "Time left · 3h 20m · 4 episodes" (unwatched episodes × episode runtime) and "Next · Season 3" (lowest unwatched season). Each is hidden when unknown (no runtime / season count) or nothing is left — never a fake zero
+- **Continue Watching:** each row adds `· Xh Ym left` when the runtime is known, and a Most watched / Least time left toggle ("finish tonight") picks and orders the six shows; unknown runtime goes last. Per visit, not saved
+
+### Added (tests)
+
+- `derive.test.ts` (`episodesLeft`, `minutesLeft`, `nextSeason`, `compareAscNullsLast` — 8), e2e `time-left.spec.ts` (6: Show Detail lines shown / hidden, toggle order + not saved, row text stays inside the card at 375 / 768 / 1280px) — 612 unit, 122 e2e
+
+## [0.4.35] — 2026-11-25
+
+Cross-navigation links (OpenSpec `add-cross-navigation-links`).
+
+### Added
+
+- **Show Detail is no longer a dead end:** genre and status tags open Shows filtered to them; network, creator (now one link per name), actor and keyword tags open Shows searched for that name (the show you came from is always in the result)
+- **Dashboard bars are links:** each Top Genres / Watch Status row opens Shows filtered to that genre / status — the listed count matches the bar
+- Real links (`FilterLink`): Tab + Enter, Ctrl / middle-click opens a new tab, visible focus outline, underline on hover, Shows code prefetched on hover / focus
+
+### Security
+
+- Link targets come only from `showsLink()` — the fixed `/shows` path with the data value percent-encoded into the query string, so a value such as `javascript:alert(1)` or `a&genre=b#x` arrives as literal search / filter text. Documented as the one exception to "no `href` from CSV data"; pinned by unit tests and an e2e hostile-keyword test
+
+### Added (tests)
+
+- `showsLink.test.ts` (3), e2e `cross-navigation.spec.ts` (8) + a sub-path link case; `TEST_CSV` Alpha gains genre `Sci-Fi & Fantasy` and keyword `javascript:alert(1)` — 604 unit, 116 + 8 sub-path e2e
+
+## [0.4.34] — 2026-11-25
+
+Progress filter (OpenSpec `add-progress-filter`).
+
+### Added
+
+- **Progress filter on Shows:** Not started / In progress / Completed (select, chip, `?progress=`, saved with the other filters, cleared by Reset; older saved filters load as All). One definition, `progressOf`, shared with the Dashboard
+- **Dashboard "View all":** Not Started opens Shows filtered to Not started (was the whole catalogue); Continue Watching gets a "View all" for every in-progress show (not just the top 6)
+- **"Clear filters" on an empty Shows result** (keeps the sort order)
+
+### Changed
+
+- FilterBar columns rebalanced for five controls: one row from `xl` (1200px), 2 + 3 rows from `sm` to `lg` (one row at `md` / `lg` truncated every label)
+- e2e `TEST_CSV` gains a completed show (Finished) — card counts 5 → 6
+
+### Added (tests)
+
+- `showFilters.test.ts` progress cases (4), e2e `progress-filter.spec.ts` (6) — 601 unit, 108 e2e
+
+## [0.4.33] — 2026-11-25
+
+Shows view state in the URL (OpenSpec `shows-url-state`).
+
+### Added
+
+- **Shareable Shows views:** search, genres, status, sort, page and page size are in the query string (`?q=`, repeated `?genre=`, `?status=`, `?sort=`, `?page=`, `?size=`; defaults omitted, so plain `/shows` is the unfiltered first page). A link's filters win over saved filters; an empty `/shows` is filled from the saved ones without an extra history entry
+- **Back undoes Shows changes:** genre / status / sort / page / page-size changes and Reset add a history entry; typing a search updates the current one (one Back step, not one per letter)
+- **Scroll restored on Back / Forward** on every page (`useScrollRestoration`, per history entry); other navigation still starts at the top
+- Invalid or stale URL values (unknown sort, bad page / size, a genre or status no show has, a page past the end) are corrected in place
+
+### Changed
+
+- Saved Shows filters apply in another tab on its next visit to Shows *without* filter params (a filtered URL shows its own); page / page size are never saved
+- e2e `spaNavigate` pushes a router-style history state (own `key`)
+
+### Added (tests)
+
+- `showFilters.test.ts` URL codec (7), `App.test` `/shows?q=` route, e2e `shows-url.spec.ts` (10), a settings-sync and a sub-path case — 597 unit, 102 + 4 PWA + 7 sub-path e2e
+
+## [0.4.32] — 2026-11-25
+
+Refactor, no behavior change (OpenSpec `extract-show-filtering`).
+
+### Changed
+
+- **Shows filtering is a pure module:** `src/utils/showFilters.ts` — saved-filter validation (`parseFilters`), search index, stale genre / status cleanup, filter + sort (`filterAndSortShows`). `ShowsPage` keeps state, the debounced save and memo wiring
+
+### Added
+
+- `showFilters.test.ts` — 19 tests (search fields, AND genres, status, stale values, every sort, no mutation) — 589 unit
+
+## [0.4.31] — 2026-11-25
+
+Refactor, no behavior change (OpenSpec `single-route-table`).
+
+### Changed
+
+- **One page table:** `src/routes/pages.ts` `PAGES` (key, path, code loader, optional nav label + icon) replaces three hand-synced lists — `App`'s page routes, `AppLayout`'s `NAV_ITEMS` and `PAGE_LOADERS` are derived from it. A new page is one row
+- **`showLinkProps(tvId, navigate)`** (`src/utils/showLink.ts`): the shared click / Enter / Space / prefetch / `role` props of `ShowCard`, Dashboard's show cards and the Not Started rows
+
+### Added
+
+- `pages.test.ts` (table invariants), `showLink.test.ts` — 570 unit, 101 e2e (91 + 4 PWA + 6 sub-path)
+
 ## [0.4.30] — 2026-11-25
 
 Fixes from a code review of 0.4.24–0.4.29.

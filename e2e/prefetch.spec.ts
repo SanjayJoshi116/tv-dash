@@ -43,7 +43,7 @@ test.describe('with Data Saver', () => {
     const counts = trackPageRequests(page)
     await page.goto('/shows')
     const cards = content(page).locator('[role=button][aria-label]')
-    await expect(cards).toHaveCount(5)
+    await expect(cards).toHaveCount(6)
     await afterIdle(page)
     expect(counts.ShowDetailPage).toBe(0)
 

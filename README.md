@@ -33,12 +33,12 @@ A personal TV watch-history dashboard built with React, TypeScript, and Ant Desi
 
 ## Features
 
-- **Dashboard** — 5-card stat row (icon badge + value-driven colors), 3-card Highlights row (Most Watched/Top Rated/Newest Release), Continue Watching (with "New eps" flag on returning shows), Recently Watched, Top Genres/Watch Status/Ratings sidebar tabs, Explore More CTA row, empty state for a fresh CSV
+- **Dashboard** — 5-card stat row (icon badge + value-driven colors), 3-card Highlights row (Most Watched/Top Rated/Newest Release), Continue Watching (with "New eps" flag on returning shows, time left per show, Most watched / Least time left order), Recently Watched, Top Genres/Watch Status/Ratings sidebar tabs (genre / status bars link to the filtered Shows list), Explore More CTA row, empty state for a fresh CSV
 - **Analytics** — 14 charts across 4 tabs: genre distribution, status breakdown, language breakdown, age rating distribution, rating histogram, shows by year, top networks, top 10 by watch time, watch time by decade/year, rating vs popularity scatter, completion by genre, seasons watched depth, top actors/creators
-- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre and status; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions (debounced); result-count row with removable filter chips and a one-click reset
+- **Filter & search** — search by title, actor, keyword, genre, creator, or network; filter by genre, status and watch progress (Not started / In progress / Completed — Dashboard's "View all" links open these); "Clear filters" on an empty result; sort by recently watched, rating, popularity, year, watch time; filters persist across sessions (debounced) and live in the URL (`/shows?genre=Drama&sort=voteAverage` — shareable, bookmarkable, Back undoes a filter, Back from a show returns to the same page and scroll position); result-count row with removable filter chips and a one-click reset
 - **Poster grid** — responsive card grid (2–8 columns) with TMDB poster images, rating badges, genre tags, and pagination
 - **Responsive layout** — icon-rail collapsible sidebar on desktop (collapse trigger at the bottom of the sidebar itself); on phone, the sidebar is replaced entirely by a fixed bottom nav bar that auto-hides on scroll; capped/centered content column; prefetched route chunks
-- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker, graceful fallback for missing/broken poster images, and a proper empty state for an invalid show ID; "Show more" appears only when the overview is actually truncated
+- **Show detail** — full page per show: expandable overview, vote count, formatted air dates, cast, networks, creators, keywords, watch history with icon-annotated season tracker, time left (remaining episodes × runtime) and next unwatched season, graceful fallback for missing/broken poster images, and a proper empty state for an invalid show ID; "Show more" appears only when the overview is actually truncated
 - **7 themes + System + Custom** — Default Dark, Default Light, Dracula, High Contrast (extra-strong contrast for low vision / bright rooms), OLED Black (true black for OLED phones), Nord, Solarized Light, System (follows the OS light/dark setting live; the default on first visit), or Custom: pick any accent color on a dark or light base and the chart palette is derived from it, every chart color kept readable (≥ 3:1) on the background; persists across sessions. Scrollbars and native controls match the theme, and the page paints in the right theme colors before the app loads (no flash)
 - **Accessibility** — labeled form fields (`aria-label`/`id` on all filters), keyboard-operable cards and list items across the Dashboard (`role="button"`, Enter/Space handlers), hover tooltips on the collapsed sidebar; keyboard shortcuts (`g d` / `g s` / `g t` switch pages, `/` jumps to Shows search, `t` next theme, `?` lists them — off while typing in a field); respects the OS reduce-motion setting (no chart / UI animations, bottom nav hides without sliding)
 - **Resilient routing** — per-route browser tab titles (show name on Show Detail, also in the header); 404 page for unknown URLs; a page crash or failed page-code load shows an error inside the layout (navigation keeps working) and clears on the next navigation; moving to a page that isn't loaded yet keeps the current one on screen with a thin progress bar instead of a blank spinner; every navigation starts at the top of the page; trailing-slash URLs resolve to the right nav item
@@ -188,7 +188,7 @@ python series-search.py
 
 ## Testing
 
-[Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com). Tests run in a node environment by default; DOM tests opt into jsdom with a `// @vitest-environment jsdom` first line (see `useTvData.test.ts`). Fifteen suites, 210 tests:
+[Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com). Tests run in a node environment by default; DOM tests opt into jsdom with a `// @vitest-environment jsdom` first line (see `useTvData.test.ts`). 26 suites, 623 tests:
 
 - `src/hooks/useTvData.test.ts` — fetch lifecycle (loading/success/error/retry, superseded response, timeout)
 - `src/utils/parseSeriesCsv.test.ts` — CSV parsing rules (row mapping, skipped rows, fatal errors, numeric fallbacks); shared CSV fixtures in `parseSeriesCsv.fixture.ts`
@@ -204,7 +204,11 @@ python series-search.py
 - `src/utils/pageTitle.test.ts` / `src/hooks/useDocumentTitle.test.ts` — header + browser tab title per route
 - `src/App.test.tsx` — root smoke test: the real app mounts every route, handles corrupt saved settings and switches theme (the slowest suite, ~20–40s: it loads antd + Recharts in jsdom)
 - `src/routes/pageLoaders.test.ts` — idle-prefetch connection policy, prefetch dedupe / retry
+- `src/utils/showFilters.test.ts` — Shows search / genre / status filters, sorts, saved-filter validation, URL params codec
+- `src/utils/showsLink.test.ts` — cross-navigation targets stay on `/shows`; hostile values (`&`, `#`, `javascript:`) round-trip as literal text
+- `src/routes/pages.test.ts` / `src/utils/showLink.test.ts` — page table invariants (unique keys / paths, nav order), shared clickable-show props
 - `src/utils/settings.test.ts` / `src/components/RootErrorBoundary.test.tsx` — settings reset, `?reset`, cross-tab settings subscription, crash recovery screen
+- `src/components/DataGate.test.tsx` — the shared loading → error → data gate every data page renders through
 - `src/utils/serviceWorker.test.ts` — activating a waiting service worker before the crash screen's Reload
 
 ```bash
@@ -212,7 +216,7 @@ npm run test        # run once
 npm run test:watch  # watch mode
 ```
 
-**Browser e2e** — [Playwright](https://playwright.dev) suite in `e2e/` (dashboard, show detail, shows page, mobile bottom nav, theme / System / first paint, page titles, crash recovery / `?reset`, reduced motion, rating badge contrast, cross-tab settings sync, route prefetch, navigation progress bar / in-layout page errors, keyboard shortcuts, Custom accent theme) plus a separate `pwa` suite (`npm run e2e:pwa`) that builds the app and runs against `vite preview` with service workers on (manifest, offline reload of every page from the cache, offline notice, `theme-color`). It serves its own synthetic CSV (skipped rows, blank / `N/A` / fractional / huge values, broken posters) via route interception, so it never depends on your data; a separate smoke test checks the real `public/tv_series.csv` when present.
+**Browser e2e** — [Playwright](https://playwright.dev) suite in `e2e/` (dashboard, show detail, shows page, mobile bottom nav, theme / System / first paint, page titles, crash recovery / `?reset`, reduced motion, rating badge contrast, cross-tab settings sync, route prefetch, navigation progress bar / in-layout page errors, keyboard shortcuts, Custom accent theme, time left) plus a separate `pwa` suite (`npm run e2e:pwa`) that builds the app and runs against `vite preview` with service workers on (manifest, offline reload of every page from the cache, offline notice, `theme-color`). It serves its own synthetic CSV (skipped rows, blank / `N/A` / fractional / huge values, broken posters) via route interception, so it never depends on your data; a separate smoke test checks the real `public/tv_series.csv` when present.
 
 ```bash
 npx playwright install chromium   # once per machine
@@ -268,8 +272,10 @@ src/
 │   ├── useMediaQuery.ts      # Live matchMedia (prefers-color-scheme)
 │   ├── useOnlineStatus.ts    # Live navigator.onLine (offline notice)
 │   ├── usePrefersReducedMotion.ts # OS reduce-motion preference
+│   ├── useScrollRestoration.ts  # Content scroll per history entry (restored on Back / Forward)
 │   └── useTvData.ts          # CSV fetch hook (loading/error/refetch)
 ├── routes/
+│   ├── pages.ts               # The one page table (key, path, loader, nav label + icon) — a new page = one row
 │   └── pageLoaders.ts         # Route lazy loaders (lazyPage), prefetchPage(), idle prefetch policy (Data Saver / 2G)
 ├── types/
 │   ├── filters.ts             # Filters, SortKey (Shows page)
@@ -283,14 +289,19 @@ src/
 │   ├── searchFocus.ts         # Shows search id + the `/` shortcut's one-shot focus request
 │   ├── serviceWorker.ts       # Activate a waiting service worker (crash screen Reload)
 │   ├── parseSeriesCsv.ts      # Pure CSV → TvSeries[] parsing + row validation
-│   └── settings.ts            # localStorage persistence, subscribeSettings (cross-tab), resetSettings / ?reset
+│   ├── settings.ts            # localStorage persistence, subscribeSettings (cross-tab), resetSettings / ?reset
+│   ├── showFilters.ts         # Shows list: saved-filter validation, search index, filter + sort (pure)
+│   ├── showLink.ts            # showLinkProps: click / Enter / Space / prefetch props of clickable shows
+│   └── showsLink.ts           # showsLink: safe link to Shows filtered by one data value (genre / status / search)
 ├── components/
 │   ├── AppLayout.tsx          # Sider + Header + Content shell
 │   ├── BottomNav.tsx          # Mobile bottom nav (hides on scroll-down)
 │   ├── ChartsSection.tsx      # 14 Recharts charts in 4 tabs
 │   ├── CsvWarningBanner.tsx   # Dismissible banner for skipped CSV rows
+│   ├── DataGate.tsx           # Loading → error → data prelude for every data page
 │   ├── ErrorState.tsx         # Shared error alert with retry
 │   ├── FilterBar.tsx          # Search, genre, status, sort controls
+│   ├── FilterLink.tsx         # Real <a> to a filtered Shows list (Show Detail tags, Dashboard bars)
 │   ├── GlobalShortcuts.tsx    # Registers the keyboard shortcuts (useHotkeys) + opens the cheat sheet
 │   ├── LoadingState.tsx       # Shared loading spinner
 │   ├── NavProgress.tsx        # Top progress bar while the next page's code loads
@@ -306,7 +317,9 @@ src/
 │   ├── ThemeToggle.tsx        # Theme selector
 │   └── UpdatePrompt.tsx       # Service worker registration + "New version available — Reload"
 └── pages/
-    ├── DashboardPage.tsx      # Overview: stats, highlights, continue/recently watched
+    ├── dashboard/             # Dashboard sections: Highlights, ContinueWatching, RecentlyWatched,
+    │                          #   SidebarTabs, NotStartedList, ExploreCards, ShowRowCard (data as props)
+    ├── DashboardPage.tsx      # Overview: gate + memos + section layout
     ├── NotFoundPage.tsx       # Catch-all 404 route
     ├── ShowDetailPage.tsx     # Full show detail
     ├── ShowsPage.tsx          # Filtered, paginated show grid

@@ -4,16 +4,22 @@ import { CloseCircleOutlined } from '@ant-design/icons'
 import type { TvSeries } from '../types/series'
 import type { Filters } from '../types/filters'
 import { uniqueGenres } from '../utils/derive'
-import { SECTION_GAP, SORT_OPTIONS, cardStyle, sortStatuses } from '../constants/ui'
+import { PROGRESS_LABELS, PROGRESS_OPTIONS, SECTION_GAP, SORT_OPTIONS, cardStyle, sortStatuses } from '../constants/ui'
 import { useTheme } from '../ThemeContext'
 import { SHOWS_SEARCH_ID } from '../utils/searchFocus'
+import { clearFilters, hasActiveFilters } from '../utils/showFilters'
 
 const { Text } = Typography
+
+// replace: update the current history entry instead of adding one (search typing)
+export interface FilterChangeOptions {
+  replace?: boolean
+}
 
 interface Props {
   data: TvSeries[]
   filters: Filters
-  onChange: (f: Filters) => void
+  onChange: (f: Filters, options?: FilterChangeOptions) => void
   resultCount: number
 }
 
@@ -27,7 +33,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
   )
   const theme = useTheme()
 
-  const hasActiveFilters = !!filters.search || filters.genres.length > 0 || !!filters.status
+  const filtersActive = hasActiveFilters(filters)
 
   return (
     <Card
@@ -35,18 +41,19 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
       style={{ marginBottom: SECTION_GAP, ...cardStyle(theme.isDark) }}
     >
     <Row gutter={[16, 16]}>
-      <Col xs={24} sm={8}>
+      {/* sm–lg: 12 / 12, then 8 / 8 / 8; xl+: one row 6 / 6 / 4 / 4 / 4 (one row at md / lg truncated every label) */}
+      <Col xs={24} sm={12} xl={6}>
         <Input.Search
           id={SHOWS_SEARCH_ID}
           name="search"
           placeholder="Search by title, person, genre, keyword…"
           aria-label="Search shows"
           value={filters.search}
-          onChange={e => onChange({ ...filters, search: e.target.value })}
+          onChange={e => onChange({ ...filters, search: e.target.value }, { replace: true })}
           allowClear
         />
       </Col>
-      <Col xs={24} sm={6}>
+      <Col xs={24} sm={12} xl={6}>
         <Select
           id="shows-genre-filter"
           mode="multiple"
@@ -60,7 +67,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
           allowClear
         />
       </Col>
-      <Col xs={24} sm={6} md={5}>
+      <Col xs={24} sm={8} xl={4}>
         <Select
           id="shows-status-filter"
           placeholder="Status"
@@ -72,7 +79,19 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
           options={statusOptions}
         />
       </Col>
-      <Col xs={24} sm={6} md={5}>
+      <Col xs={24} sm={8} xl={4}>
+        <Select
+          id="shows-progress-filter"
+          placeholder="Progress"
+          aria-label="Filter by progress"
+          style={{ width: '100%' }}
+          value={filters.progress === 'all' ? undefined : filters.progress}
+          onChange={progress => onChange({ ...filters, progress: progress ?? 'all' })}
+          allowClear
+          options={PROGRESS_OPTIONS}
+        />
+      </Col>
+      <Col xs={24} sm={8} xl={4}>
         <Select
           id="shows-sort"
           aria-label="Sort shows by"
@@ -84,7 +103,7 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
       </Col>
     </Row>
 
-    {(hasActiveFilters || resultCount !== data.length) && (
+    {(filtersActive || resultCount !== data.length) && (
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${theme.borderColor}` }}>
         <Text type="secondary" style={{ fontSize: 12 }}>{resultCount} of {data.length} shows</Text>
 
@@ -103,13 +122,18 @@ export function FilterBar({ data, filters, onChange, resultCount }: Props) {
             {filters.status}
           </Tag>
         )}
+        {filters.progress !== 'all' && (
+          <Tag closable onClose={() => onChange({ ...filters, progress: 'all' })} style={{ margin: 0 }}>
+            {PROGRESS_LABELS[filters.progress]}
+          </Tag>
+        )}
 
-        {hasActiveFilters && (
+        {filtersActive && (
           <Button
             type="link"
             size="small"
             icon={<CloseCircleOutlined />}
-            onClick={() => onChange({ ...filters, search: '', genres: [], status: '' })}
+            onClick={() => onChange(clearFilters(filters.sortBy))}
             style={{ padding: 0, marginLeft: 'auto' }}
           >
             Reset filters

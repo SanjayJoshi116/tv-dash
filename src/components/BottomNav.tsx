@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { Typography, theme as antTheme } from 'antd'
 import { useTheme } from '../ThemeContext'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { prefetchPage, type PageKey } from '../routes/pageLoaders'
+import { prefetchPage } from '../routes/pageLoaders'
+import type { PageKey } from '../routes/pages'
 
 const { Text } = Typography
 

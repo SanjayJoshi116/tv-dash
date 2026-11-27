@@ -1,19 +1,19 @@
 import { useTvDataContext } from '../context/useTvDataContext'
 import { StatsBar } from '../components/StatsBar'
 import { ChartsSection } from '../components/ChartsSection'
-import { LoadingState } from '../components/LoadingState'
-import { ErrorState } from '../components/ErrorState'
+import { DataGate } from '../components/DataGate'
 
 export function StatisticsPage() {
-  const { data, loading, error, refetch } = useTvDataContext()
-
-  if (loading) return <LoadingState />
-  if (error) return <ErrorState message="Failed to load data" description={error} onRetry={refetch} />
+  const tvData = useTvDataContext()
 
   return (
-    <>
-      <StatsBar data={data} />
-      <ChartsSection data={data} />
-    </>
+    <DataGate state={tvData}>
+      {data => (
+        <>
+          <StatsBar data={data} />
+          <ChartsSection data={data} />
+        </>
+      )}
+    </DataGate>
   )
 }

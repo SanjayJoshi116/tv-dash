@@ -4,7 +4,7 @@
 
 Found during the 0.4.14 ideas pass and the Entry / root OpenSpec proposals (not fixed yet — each points to its `IDEAS.md` entry or planned OpenSpec change). Contrast ratios are WCAG relative-luminance values against the theme's `contentBg` unless stated.
 
-- [ ] `ShowDetailPage` / `completionRate` — completion above 100% when `Episodes Watched` > `Total Episodes` (TMDB count changed after saving). **Confirmed in the real CSV:** Farming Life in Another World 24 / 13 → "185%", Spartacus: Gods of the Arena 6 / 1 → "600%". Decide the rule once (IDEAS → Utils `progressState`, soft data-quality warnings) and clamp the display
+- [ ] `ShowDetailPage` / `completionRate` — completion above 100% when `Episodes Watched` > `Total Episodes` (TMDB count changed after saving). **Confirmed in the real CSV:** Farming Life in Another World 24 / 13 → "185%", Spartacus: Gods of the Arena 6 / 1 → "600%". Decide the rule once (IDEAS → Utils `progressState`, soft data-quality warnings) and clamp the display. (0.4.36: the new "Time left" already clamps — `episodesLeft` never goes below 0, so these rows show no time left; the completion % is still unclamped)
 - [ ] `StatCard` — tint built as `${color}40` / `${color}22` breaks on non-6-digit colors. **Real path:** Avg Rating falls back to `theme.chartText` (`#ccc` in Default Dark) when no show is rated → `#ccc40` is invalid, border/badge background dropped (IDEAS → Components "Robust tint colors")
 - [ ] `constants/ui.ts` `GENRE_COLORS` — Crime (26 shows) and Documentary / Family / Kids / War & Politics / Reality render as grey `default`; 6 entries are TMDB movie genres that never occur (IDEAS → Constants P1)
 - [ ] `series-search.py` `CsvStore.update` — updating an existing show rewrites the row in place, so a re-watched show never reaches "Recently Watched" / `recentFirst` (row order is the watch history) (IDEAS → Outside `src/` P1)
@@ -15,6 +15,32 @@ Found during the 0.4.14 ideas pass and the Entry / root OpenSpec proposals (not 
 - [ ] `useTvData` — **verify:** on SPA hosts (and possibly Vite dev) a missing `/tv_series.csv` returns `200` + `index.html`, reported as a confusing "missing columns" error (IDEAS → Hooks P1)
 - [ ] CI — `node-version: 20` is past end-of-life (April 2026); the CLAUDE.md lock-file rule assumes it (IDEAS → Outside `src/` P1)
 - [ ] Build copies everything in `public/` into `dist/` — including the personal `tv_series.csv.bak` (and `tv_series.csv` itself), so deploying `dist/` as-is publishes them. Not in the service-worker precache, but downloadable. Exclude backups from the copy (or move them out of `public/`), and decide how the real CSV gets deployed. Found 2026-11-25 while checking the PWA build output
+- [ ] e2e `fixtures.ts` console-error guard — a host network blip (`Failed to load resource: net::ERR_NETWORK_CHANGED`, Windows adapter change) fails whichever test is running (seen 2026-11-25 in `theme` / `custom-theme`, 1–3 per full run, all passing on rerun). Ignore that one network error in the guard (it's never app-caused), or retry once in CI
+
+## Fixed in 0.4.37 (2026-11-27)
+
+Code review of 0.4.31–0.4.37:
+
+- [x] Shows — saved filters re-seeded an empty URL later in the same visit (after paging, Shows in the nav showed the saved filters instead of the unfiltered view); now once per mount
+- [x] Shows — a failed CSV load rewrote a bookmarked `?page=N` to page 1; Retry now lands on it
+- [x] `useScrollRestoration` — a same-path `REPLACE` in the restore frame (Shows URL correction right after Back) cancelled the Back / Forward scroll restore
+- [x] `progressOf` — negative Episodes Watched (hand-edited CSV) counted as In progress, with `totalEpisodes` 0 → division by zero in Continue Watching's order
+- [x] `parseFilters` — repeated `?genre=` values weren't deduped (duplicate React keys)
+- [x] e2e `fixtures.ts` — option / label text was interpolated into a `RegExp` unescaped (`exactText`)
+
+## Fixed in 0.4.35 (2026-11-25)
+
+- [x] Show Detail / Dashboard — genre, status, network, creator, actor and keyword tags and the Top Genres / Watch Status bars were dead text: finding related shows meant going to Shows and retyping. They're links to the filtered Shows list now (`add-cross-navigation-links`)
+
+## Fixed in 0.4.34 (2026-11-25)
+
+- [x] Dashboard — Not Started "View all" opened the whole unfiltered catalogue, and Continue Watching had no way to see more than its top 6 (both open the progress-filtered Shows list now)
+- [x] Shows — a filter combination with no results ("No shows match your filters") had no way out but the Reset link in the filter card ("Clear filters" button, keeps the sort)
+
+## Fixed in 0.4.33 (2026-11-25)
+
+- [x] Shows → Show Detail → Back landed on page 1 at the top, with filters only from localStorage (not in the URL: no shareable view, Back couldn't undo a filter). Shows state is in the URL now and `Content` scroll is restored per history entry on Back / Forward (`shows-url-state`)
+- [x] e2e `spaNavigate` pushed `{}` history state, so every entry it made shared the initial entry's `'default'` key (found while adding per-entry scroll restore)
 
 ## Fixed in 0.4.30 (2026-11-25)
 

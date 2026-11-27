@@ -2,7 +2,7 @@
 
 Improvement ideas per module (top), then the finished review tracker (bottom). Bugs live in [BUG_BACKLOG.md](BUG_BACKLOG.md) — the 9 bug-like findings from the ideas pass are listed there too, each pointing back to its idea here.
 
-_Last updated 2026-11-25 (v0.4.30 — code-review fixes: readable Custom primary + primary-button text in every theme, cross-tab Custom race, router dispose, `/` request edge cases, relative base, narrow-phone Customize popover; v0.4.29 — sub-path hosting (`--base`, router basename, base-relative CSV / PWA URLs, `build:pages`); v0.4.28 — `?theme=` URL override (one visit, never saved; boot script honors it); v0.4.27 — four more built-in themes: High Contrast, OLED Black, Nord, Solarized Light; v0.4.26 — Custom accent theme (picked accent on a dark / light base, derived readable chart palette, `utils/color.ts`); v0.4.25 — global keyboard shortcuts (`useHotkeys`, `?` cheat sheet); v0.4.24 — data router (route `lazy` + error elements, navigation progress bar; spike passed); v0.4.23 — installable PWA / offline (network-first CSV, update prompt, theme-color), then a simplify + code-review pass over 0.4.20–0.4.23; v0.4.22 — smarter route prefetch (Data Saver / 2G aware, hover/focus intent); v0.4.21 — cross-tab theme sync; v0.4.20 — semantic theme colors (per-theme rating/completion tiers, readable badges); v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 562 unit, 91 + 4 PWA + 6 sub-path e2e (Playwright, CI — `npm run e2e` / `npm run e2e:pwa`), 37 generator checks (`npm run test:gen`, local).
+_Last updated 2026-11-27 (v0.4.37 — `<DataGate>` loading / error prelude on every data page, `DashboardPage` split into `pages/dashboard/` sections, then a simplify + code-review pass (Shows seed / failed-load page / scroll restore / negative-count fixes); v0.4.36 — time left + next season on Show Detail, Continue Watching Least time left order; v0.4.35 — cross-navigation links from Show Detail tags and Dashboard bars to filtered Shows; v0.4.34 — progress filter (Not started / In progress / Completed) + Dashboard "View all" links, "Clear filters" on an empty result; v0.4.33 — Shows filters / page in the URL (shareable, Back undoes a filter) + per-entry scroll restore on Back / Forward; v0.4.32 — Shows filter / sort logic extracted to `utils/showFilters.ts` + unit tests, no behavior change; v0.4.31 — single page table (`routes/pages.ts`) + `showLinkProps`, no behavior change; v0.4.30 — code-review fixes: readable Custom primary + primary-button text in every theme, cross-tab Custom race, router dispose, `/` request edge cases, relative base, narrow-phone Customize popover; v0.4.29 — sub-path hosting (`--base`, router basename, base-relative CSV / PWA URLs, `build:pages`); v0.4.28 — `?theme=` URL override (one visit, never saved; boot script honors it); v0.4.27 — four more built-in themes: High Contrast, OLED Black, Nord, Solarized Light; v0.4.26 — Custom accent theme (picked accent on a dark / light base, derived readable chart palette, `utils/color.ts`); v0.4.25 — global keyboard shortcuts (`useHotkeys`, `?` cheat sheet); v0.4.24 — data router (route `lazy` + error elements, navigation progress bar; spike passed); v0.4.23 — installable PWA / offline (network-first CSV, update prompt, theme-color), then a simplify + code-review pass over 0.4.20–0.4.23; v0.4.22 — smarter route prefetch (Data Saver / 2G aware, hover/focus intent); v0.4.21 — cross-tab theme sync; v0.4.20 — semantic theme colors (per-theme rating/completion tiers, readable badges); v0.4.19 — typed theme names, `AppThemeProvider`, theme contract test, simplify + code-review fixes; v0.4.18 — root smoke test; v0.4.17 — reduced motion; v0.4.16 — root safety net + `?reset`; v0.4.15 — System theme + no-flash boot script, per-route titles, root tidy-up; all via OpenSpec, see Completed → Shipped improvement ideas)._ All modules reviewed (simplify + code-review + security-review), plus whole-project simplify + code-review passes in v0.4.11 and v0.4.13. Test coverage: 623 unit, 124 + 4 PWA + 8 sub-path e2e (Playwright, CI — `npm run e2e` / `npm run e2e:pwa`), 37 generator checks (`npm run test:gen`, local).
 
 ## Open follow-ups
 
@@ -13,46 +13,35 @@ _Last updated 2026-11-25 (v0.4.30 — code-review fixes: readable Custom primary
 New-feature / out-of-the-box ideas per module (not bugs). P1 = high value, low cost · P2 = worth doing · P3 = nice-to-have / experimental. Each idea is listed once, in the module that owns it; related ideas elsewhere point to it.
 
 ### Entry / root (`src/`)
-Scope: `main.tsx`, `App.tsx`, `ThemeContext.tsx`, `themes.ts`, `setupTests.ts`.
+Scope: `main.tsx`, `App.tsx` (data router), `ThemeContext.tsx`, `themes.ts`, `customTheme.ts`, `antdTheme.ts`, `themeBootScript.ts`, `routes/pageLoaders.ts`.
 
 #### P1
 
 #### P2
-- **Single route table** — `App`'s `ROUTES`, `NAV_ITEMS` (`key` + `page`) and `PAGE_LOADERS` are three hand-synced lists since v0.4.22. One table in `routes/` (`{ path, page, nav?: { label, icon } }`) that `App` maps to routes and `AppLayout` filters for nav would remove the `page` field / `MENU_ITEMS` stripping. Also a candidate: a `showLinkProps(id)` helper for the three clickable show elements (click / key / prefetch / role). From the v0.4.23 simplify pass.
 
 #### P3
-- ~~**`setupTests.ts` cleanup** — it loads `@testing-library/jest-dom` for every test while the default environment is `node`; move it to the jsdom tests only (or drop it if no matcher uses it).~~ ✅ Unreleased (`tidy-root-entry`): file + dependency dropped; jsdom tests import `@testing-library/jest-dom/vitest` themselves.
-- ~~**Clear mount error** — replace `document.getElementById('root')!` with an explicit check that throws `"#root element missing in index.html"`.~~ ✅ Unreleased (`tidy-root-entry`).
 
 ### Pages (`src/pages/`)
 Scope: `DashboardPage.tsx`, `ShowsPage.tsx`, `ShowDetailPage.tsx`, `StatisticsPage.tsx`, `NotFoundPage.tsx`.
 
 #### P1
-- **Shows state in the URL** — filters + page live only in localStorage / component state, and `AppLayout` resets `scrollTop` on every navigation, so Shows → Show Detail → Back lands on page 1 at the top. Mirror `search` / `genres` / `status` / `sortBy` / `page` / `pageSize` into `useSearchParams` (URL wins over saved filters when present, saved filters seed an empty URL), and restore `Content` scroll on POP navigation back to `/shows`. Side benefits: shareable filtered views, browser back undoes a filter.
-- **Everything is a link (cross-navigation)** — genre / network / actor / creator / keyword tags on Show Detail and the Top Genres / Watch Status bars on Dashboard are dead text. Make each one `navigate('/shows?genre=Drama')` / `?q=<actor>` (needs the URL state above). Safe w.r.t. the "no `href` from CSV" rule: `navigate()` to a fixed path + `URLSearchParams`-encoded value, never a CSV-built `href`.
-- **Progress filter** — new `Filters.progress`: `all` / `notStarted` / `inProgress` / `completed` (from `episodesWatched` vs `totalEpisodes`). Dashboard's "Not Started → View all" and a new "Continue Watching → View all" then open the matching list instead of the unfiltered catalogue.
-- **"Time left" on Show Detail + Continue Watching** — `(totalEpisodes − episodesWatched) × episodeRuntime` (hidden when `episodeRuntime == null`), plus the next unwatched season (`S3 next`). Continue Watching could sort by least time left ("finish tonight") instead of highest %, or offer both.
-- **Empty Shows result with a way out** — `ShowGrid`'s `Empty` ("No shows match your filters") has no action. Pass a "Clear filters" button from `ShowsPage` (it owns `DEFAULT_FILTERS`), and show which filters are active.
-- **Pure `filterAndSortShows()` + tests** — the filter / sort / search-index logic is ~40 lines inside `ShowsPage`'s `useMemo`s with zero unit coverage (only e2e search). Move it to `utils/` (`buildSearchIndex`, `applyFilters`) and unit-test AND-genre matching, unknown saved status, `recentFirst`, nulls-last sorts.
 
 #### P2
 - **"More like this" on Show Detail** — rank other shows by Jaccard overlap of `genres` + `keywords` (+ shared creators/networks bonus); show 6 `PosterThumb` cards. Pure `similarShows(target, data, n)` in `derive.ts`, unit-tested with fixtures, memoized per show. Turns a dead-end page into browsing.
 - **Prev / Next in watch order** — CSV row order is watch history; Show Detail can offer "← watched before / watched after →" (and `←`/`→` keys), plus a "#42 of 159 watched" badge. Cheap: index lookup in `data`.
 - **Context instead of raw numbers** — `Popularity 123.4` means nothing to the viewer. Show library rank / percentile instead ("Top 10% rated in your library", "#3 most watched"), computed from `data`.
 - **External TMDB link** — "Open on TMDB" button to `https://www.themoviedb.org/tv/${tvId}`. Allowed by the security rule only because `tvId` is a validated positive integer and the origin is fixed — keep a comment saying so, never interpolate a string field.
-- **Statistics tab in the URL** — `/stats?tab=ratings` so a chart group is deep-linkable and survives reload / back (needs a `tab` + `onTabChange` prop on `ChartsSection`, which owns `Tabs` today).
-- **Chart drill-down** — clicking a genre bar / status slice / decade bar on Statistics jumps to Shows with that filter (same URL-param plumbing as P1). Recharts `onClick` on `Bar` / `Pie`.
-- **Scoped statistics** — a small filter row on Statistics (genre / status / progress) that feeds a subset into `StatsBar` + `ChartsSection` ("stats for my Crime shows"). Reuses `Filters` + the extracted `applyFilters`.
+- **Statistics tab in the URL** — `/stats?tab=ratings` so a chart group is deep-linkable and survives reload / back (needs a `tab` + `onTabChange` prop on `ChartsSection`, which owns `Tabs` today). Reuse the Shows pattern (v0.4.33): URL as the source of truth, `replace` for corrections, scroll already restored per history entry by `useScrollRestoration`.
+- **Chart drill-down** — clicking a genre bar / status slice / decade bar on Statistics jumps to Shows with that filter (same URL-param plumbing as P1). Recharts `onClick` on `Bar` / `Pie`. Reuse `showsLink()` (`utils/showsLink.ts`, v0.4.35) for the target — it's the one safe way to turn a data value into a Shows URL.
+- **Scoped statistics** — a small filter row on Statistics (genre / status / progress) that feeds a subset into `StatsBar` + `ChartsSection` ("stats for my Crime shows"). Reuses `Filters` (incl. `progress`, v0.4.34) + `filterAndSortShows` / `progressOf` from `utils/showFilters.ts`.
 - **Table view on Shows** — grid/table toggle (persisted via `saveSetting`); antd `Table` with sortable columns (rating, year, progress, watch time) for dense scanning on desktop. Also gives a natural ascending/descending toggle, which the sort menu lacks.
 - **More Shows filters** — rating range, first-air-year range, language, network (options from data, like genres/status). Genre AND ↔ OR toggle (today it's AND only).
-- **`usePageData()` / `<DataGate>`** — four pages repeat the same `loading → LoadingState`, `error → ErrorState` prelude with the same message. One helper returning `data` only when ready keeps the order (`loading` → `error` → data) enforced in one place.
-- **Split `DashboardPage`** (395 lines) — move sections (`Highlights`, `ContinueWatching`, `RecentlyWatched`, `SidebarTabs`, `NotStartedList`) into `src/pages/dashboard/*` with data as props; page keeps only the memos. Easier to test and to make sections optional (P3 below).
 
 #### P3
 - **"What should I watch?" picker** — Dashboard button that picks a random Not Started / In Progress show, weighted by rating and filtered by mood (genre chips). Small modal with re-roll.
 - **Auto insights** — 3–4 generated sentences on Dashboard / Statistics: "Drama is 38% of your watch time", "You finish 82% of Crime shows but 40% of Comedy", "Your average rating is 0.6 above TMDB's for this set". Pure functions in `derive.ts` returning numbers (`genreShareOfWatchTime`, `completionGap`, `ratingVsLibraryMean`); sentence templating stays in the UI.
 - **Milestones / badges** — 100 shows, 1,000 hours, 10 completed series, a genre fully explored; shown as a small row on Dashboard. No timestamps needed.
-- **Customizable Dashboard** — hide / reorder sections, saved via `saveSetting('dashboardLayout', …)` (type-checked on load like `loadFilters`). Depends on the Dashboard split.
+- **Customizable Dashboard** — hide / reorder sections, saved via `saveSetting('dashboardLayout', …)` (type-checked on load like `loadFilters`). Unblocked: sections are prop-driven units in `src/pages/dashboard/` since v0.4.37.
 - **Layout-matching skeletons** — antd `Skeleton` shaped like each page instead of the centered spinner, so the first paint doesn't jump.
 - **Smarter 404** — `NotFoundPage` / Show-not-found offer a search box and, for `/shows/<text>` that isn't a number, "Did you mean…" matches by name (navigate to the result, never echo the path as HTML).
 - **Poster-tinted hero** — derive an accent from the poster's dominant color for the Show Detail hero background/border. Spike first: needs CORS-enabled images for canvas reads (TMDB image CDN may or may not allow it) and must still pass theme contrast.
@@ -60,7 +49,7 @@ Scope: `DashboardPage.tsx`, `ShowsPage.tsx`, `ShowDetailPage.tsx`, `StatisticsPa
 - **Export** — download the filtered Shows list (optionally with the personal overlay merged in) as CSV via `toCsv(rows)` (`Papa.unparse`) and stats as JSON; a printable Statistics layout would need a documented exception to the no-CSS rule (or inline `@media print` via `window.print` + a print-mode state).
 
 ### Components (`src/components/`)
-Scope: `AppLayout`, `BottomNav`, `ChartsSection`, `CsvWarningBanner`, `ErrorState`, `FilterBar`, `LoadingState`, `PosterThumb`, `RouteErrorBoundary`, `ShowCard`, `ShowGrid`, `StatCard`, `StatsBar`, `ThemeToggle`. (Cross-links / URL filters / drill-down from pages are under Pages — not repeated here.)
+Scope: `AppLayout`, `BottomNav`, `ChartsSection`, `CsvWarningBanner`, `ErrorState`, `FilterBar`, `GlobalShortcuts`, `LoadingState`, `NavProgress`, `OfflineNotice`, `PosterThumb`, `RouteErrors` (`PageError`, `RootRouteError`), `RootErrorBoundary`, `ShortcutsHelp`, `ShowCard`, `ShowGrid`, `StatCard`, `StatsBar`, `ThemeToggle`, `UpdatePrompt`. (Cross-links / URL filters / drill-down from pages are under Pages — not repeated here.)
 
 #### P1
 - **Themed chart tooltips** — every Recharts `<Tooltip>` in `ChartsSection` (and Dashboard's Ratings chart) uses the default white box + grey hover cursor, which glares in Default Dark / Dracula. One shared `tooltipProps(theme)` (`contentStyle` / `labelStyle` / `itemStyle` / `cursor` fill from `Theme`) spread into each, like the shared `axisTick`.
@@ -88,7 +77,7 @@ Scope: `AppLayout`, `BottomNav`, `ChartsSection`, `CsvWarningBanner`, `ErrorStat
 - **`ShowCard` richer `aria-label`** — "Breaking Bad, 2008, rated 8.9, 62 of 62 episodes" instead of name only; sighted users get this from the card, screen-reader users currently don't.
 - **Offline-aware `ErrorState`** — when `navigator.onLine === false`, say "You're offline" and auto-retry on the `online` event; otherwise add "Copy details" for the error text.
 - **Component tests** — none of `src/components/` has a unit test (e2e only). jsdom + Testing Library for `CsvWarningBanner` (dismiss → refetch re-shows), `NavProgress` (delay, location-keyed visibility), `StatCard` hover text, `FilterBar` chip removal.
-- **Single nav/route config** — `NAV_ITEMS` (AppLayout) and the routes / lazy loaders (App) describe the same pages twice; one `ROUTES` table (`path`, `label`, `icon`, `loader`, `inNav`) feeds Menu, BottomNav, page title and router.
+- ~~**Single nav/route config**~~ ✅ v0.4.31 — see Completed → Entry / root "Single route table".
 
 #### P3
 - **Chart registry** — the deferred "data-driven chart config": `{ id, tab, title, subtitle, render }[]` would make chart order, the Dashboard's chart count ("14 charts…" is hard-coded in the Explore card today), per-chart expand / table / empty-state wrappers and hide-a-chart settings fall out for free. Do it together with the `ChartCard` wrapper.
@@ -126,11 +115,11 @@ Scope: `TvDataContext.tsx` (provider), `useTvDataContext.ts` (context + hook) �
 - **Demo / fixture data switch** — dev-only `?data=demo` loading a bundled synthetic CSV (`TEST_CSV`), for screenshots and trying edge cases in the browser without touching the real file.
 
 ### Hooks (`src/hooks/`)
-Scope: `useTvData.ts` (+ `useTvData.test.ts`) — today the only hook. Also: hook-shaped logic currently inlined in pages/components that could live here. (Context-shape ideas — union status, `refreshing`, derived indexes — are under Context.)
+Scope: `useTvData.ts` (+ `useTvData.test.ts`), plus the small shared hooks `useHotkeys`, `useMediaQuery`, `usePrefersReducedMotion`, `useOnlineStatus`, `useDocumentTitle` (each with a test). Also: hook-shaped logic currently inlined in pages/components that could live here. (Context-shape ideas — union status, `refreshing`, derived indexes — are under Context.)
 
 #### P1
-- **Detect "CSV missing → got index.html"** — SPA hosts (Netlify / Vercel / GitHub Pages rewrites, and possibly Vite dev's HTML fallback — verify) answer a missing `/tv_series.csv` with `200` + `index.html`. The parser then reports a confusing "missing column" / "no valid rows". Check `Content-Type` (or a leading `<!doctype` / `<html`) before parsing and raise "tv_series.csv not found — run series-search.py or add it to public/".
-- **Always revalidate the CSV** — `fetch('/tv_series.csv')` uses the default HTTP cache; on a static host with heuristic caching, rows appended by `series-search.py` may not show after Refresh / Retry. `cache: 'no-cache'` (conditional request → cheap 304 when unchanged). Also a prerequisite for the auto-refresh idea under Context.
+- **Detect "CSV missing → got index.html"** — SPA hosts (Netlify / Vercel / GitHub Pages rewrites, and possibly Vite dev's HTML fallback — verify) answer a missing CSV (`CSV_URL` — `/tv_series.csv` at the root, under the base otherwise) with `200` + `index.html`. The parser then reports a confusing "missing column" / "no valid rows". Check `Content-Type` (or a leading `<!doctype` / `<html`) before parsing and raise "tv_series.csv not found — run series-search.py or add it to public/".
+- **Always revalidate the CSV** — `fetch(CSV_URL)` uses the default HTTP cache (the service worker's NetworkFirst sits in front of it in production builds); on a static host with heuristic caching, rows appended by `series-search.py` may not show after Refresh / Retry. `cache: 'no-cache'` (conditional request → cheap 304 when unchanged). Also a prerequisite for the auto-refresh idea under Context.
 - **Extract the inlined hooks** — hook-shaped logic lives in pages/components with no unit tests:
   - `useDebouncedSetting(key, value, ms)` — ShowsPage's debounce + flush-on-unmount (the subtle part CLAUDE.md warns about); reusable for the table-view / dashboard-layout / preset ideas.
   - `useScrollDirection(ref, { threshold, ignoreMs })` — `BottomNav`'s scroll logic incl. the 800ms scroll-anchoring guard.
@@ -154,13 +143,13 @@ Scope: `useTvData.ts` (+ `useTvData.test.ts`) — today the only hook. Also: hoo
 - **Streaming parse for big files** — Papa's `step` / chunked parse with a progress value (`loaded / total` from `Content-Length`) for the "load your own CSV" case.
 
 ### Utils (`src/utils/`)
-Scope: `derive.ts`, `parseSeriesCsv.ts` (+ fixture), `settings.ts`, `lookup.ts`, `a11y.ts` and their tests.
+Scope: `derive.ts`, `parseSeriesCsv.ts` (+ fixture), `settings.ts`, `lookup.ts`, `a11y.ts`, `color.ts` (+ `contrast.fixture.ts`), `searchFocus.ts`, `pageTitle.ts`, `errorMessage.ts`, `serviceWorker.ts` and their tests.
 
 #### P1
 - **`Intl.DisplayNames` for languages** — `LANGUAGE_NAMES` hard-codes 10 ISO codes; anything else shows as `TR` / `DA` / `SV`. `new Intl.DisplayNames(['en'], { type: 'language' }).of(code)` names every code (fallback to uppercase on a `RangeError` for junk). One exported `languageName(code)` for the Statistics chart and Show Detail's meta row.
 - **`progressState(s)` classifier** — `'notStarted' | 'inProgress' | 'completed'` from `episodesWatched` / `totalEpisodes`, defined once (Dashboard inlines `> 0 && < total` and `=== 0`; the Pages "progress filter" and Components "completed mark" ideas need the same rule). Decide here what `episodesWatched > totalEpisodes` means (TMDB added episodes after the row was saved → `completed`? `inProgress`?) and test it.
 - **Soft data-quality warnings** — parser only warns when it *skips* a row. Keep the row but warn on contradictions: `episodesWatched > totalEpisodes` (Show Detail renders "110%"), `seasonsWatched` containing a season > `seasons`, negative counts / popularity, unparseable `First Air Date`. Separate `notices` list (or a `level` on structured warnings) so the banner can say "3 rows look inconsistent" without implying data loss.
-- **Accent-insensitive search** — a shared `normalizeSearch(s)` (`toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')`) used for both the index and the query: "pokemon" finds "Pokémon", "amelie" finds "Amélie". Pure, one test table. (Lives next to the extracted `filterAndSortShows` from Pages.)
+- **Accent-insensitive search** — a shared `normalizeSearch(s)` (`toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')`) used for both the index and the query: "pokemon" finds "Pokémon", "amelie" finds "Amélie". Pure, one test table. (Lives next to `filterAndSortShows` in `utils/showFilters.ts`.)
 - **Typed settings schema** — `settings.ts` returns `Record<string, unknown>` and each caller re-implements validation (`loadFilters`, `loadThemeName`). A small schema `{ filters: isFilters, themeName: isThemeName, … }` + `getSetting(key)` returning the validated type or the default puts all checks in one tested place — and every new persisted idea (table view, dashboard layout, presets, overlay) just adds a key.
 - **`countBy` helper in `derive.ts`** — genre / status / network / actor / creator / language / age-rating distributions are seven copies of "null-proto count map → entries → sort desc → slice". `countBy(data, s => keys, { n, label })` returns `NameValue[]`; also gives one place for a deterministic tie-break (count desc, then name) so chart order doesn't shift when CSV row order changes.
 
@@ -182,7 +171,7 @@ Scope: `derive.ts`, `parseSeriesCsv.ts` (+ fixture), `settings.ts`, `lookup.ts`,
 - **`lookup` → `Map`** — CSV-keyed maps could be `Map`s outright (no prototype issue by construction); `lookup` then only remains for static config objects like `LANGUAGE_NAMES` (which `Intl.DisplayNames` removes anyway).
 
 ### Constants (`src/constants/`)
-Scope: `ui.ts` (+ `ui.test.ts`). Checked against the real CSV (159 shows): genres Drama 85 · Sci-Fi & Fantasy 73 · Action & Adventure 72 · Animation 56 · Comedy 48 · **Crime 26** · Mystery 19 · Documentary 4 · Family 4 · Kids 2 · War & Politics 1 · Reality 1; ratings 59 green / 88 amber / 9 red; statuses Ended 96 · Returning 51 · Canceled 12. (Semantic theme tokens for tier colors are under Entry / root — not repeated.)
+Scope: `ui.ts` (+ `ui.test.ts`), `shortcuts.ts` (`SHORTCUTS`), `paths.ts` / `csvFile.ts` (base-relative URLs). Checked against the real CSV (159 shows): genres Drama 85 · Sci-Fi & Fantasy 73 · Action & Adventure 72 · Animation 56 · Comedy 48 · **Crime 26** · Mystery 19 · Documentary 4 · Family 4 · Kids 2 · War & Politics 1 · Reality 1; ratings 59 green / 88 amber / 9 red; statuses Ended 96 · Returning 51 · Canceled 12. (Semantic theme tokens for tier colors are under Entry / root — not repeated.)
 
 #### P1
 - **`GENRE_COLORS` follows TMDB's TV genre list** — Crime (26 shows, 6th most common) renders as grey `default`, as do Documentary / Family / Kids / War & Politics / Reality. Meanwhile 6 of the 12 entries (Action, Fantasy, Thriller, Romance, Horror, Adventure) are TMDB *movie* genres that never occur in TV data. Replace with the 16 TV genres (Action & Adventure, Animation, Comedy, Crime, Documentary, Drama, Family, Kids, Mystery, News, Reality, Sci-Fi & Fantasy, Soap, Talk, War & Politics, Western), typed like `STATUSES` (`satisfies Record<TvGenre, …>`) with `KNOWN_GENRES` / `TvGenre` in `types/series.ts` (`genres: (TvGenre | (string & {}))[]`, data type stays free of UI imports), and keep the lookup fallback for anything else.
@@ -202,7 +191,7 @@ Scope: `ui.ts` (+ `ui.test.ts`). Checked against the real CSV (159 shows): genre
 - **Named Dashboard limits** — `slice(0, 3)` recently watched, `6` continue watching / genres, `8` not started, `15` actors, `20` keywords are scattered literals; a `LIMITS` object documents them and feeds the "customizable dashboard" idea.
 - **Genre icons** — optional icon/emoji per genre for chips and the quick switcher (🔍 Crime, 🚀 Sci-Fi & Fantasy), alongside the color.
 - **Data-driven rating tiers** — tiers relative to the library (top 25% green, bottom 10% red) instead of fixed 8 / 6, as a setting; makes the color mean "good *for you*". Keep fixed tiers as default.
-- **Motion constants** — `0.25s ease` (BottomNav), `debounce={200}`, `300ms` save debounce, `800ms` anchoring guard: `MOTION` / `TIMING` constants so reduced-motion handling can zero them in one place.
+- **Motion constants** — `0.25s ease` (BottomNav), `debounce={200}`, `300ms` save debounces (Shows filters, Custom theme), `800ms` anchoring guard, `NavProgress`'s 150ms delay + 4s width transition: `MOTION` / `TIMING` constants so reduced-motion handling can zero them in one place.
 
 ### Types (`src/types/`)
 Scope: `series.ts` (`TvSeries`, `KNOWN_STATUSES` / `KnownStatus`, `NameValue`, `NameCount`), `filters.ts` (`Filters`, `SortKey`, `NumericSortKey`) — plus the compiler settings that decide how much the types can catch (`tsconfig.json`: `strict`, target/lib `ES2020`).
@@ -253,7 +242,7 @@ Scope: `series-search.py` (+ `scripts/test_series_search.py`, `scripts/run-pytho
 - **React 19 / Recharts 3** — React 18.3 and Recharts 2 are a major behind; React 19 also changes the `set-state-in-effect` / StrictMode story CLAUDE.md documents. Spike in a branch with the e2e suite as the safety net.
 
 #### P3
-- **Public demo deploy** — GitHub Pages workflow building with a synthetic CSV (the e2e `TEST_CSV` or a bigger generated one; the real CSV stays gitignored/private) → live demo link in README and screenshots that update themselves. Needs the base-path idea from Entry / root.
+- **Public demo deploy** — GitHub Pages workflow building with a synthetic CSV (the e2e `TEST_CSV` or a bigger generated one; the real CSV stays gitignored/private) → live demo link in README and screenshots that update themselves (`?theme=` makes per-theme shots easy). The base path is done (v0.4.29: `npm run build:pages` builds for `/tv-dash/` with the `404.html` fallback, `e2e:subpath` covers it) — what's left is the Actions workflow (`actions/deploy-pages`) and putting a demo CSV into `dist/`.
 - **LAN dev server opt-in** — `vite.config.ts` sets `server.host: true`, so every `npm run dev` exposes the app (and the personal CSV) to the local network. Make it `npm run dev:lan` and keep `dev` on localhost.
 - **Import from other trackers** — one-off importer (Trakt / TV Time / Netflix viewing-history CSV) that matches titles via TMDB search and writes rows in watch order; review screen for ambiguous matches.
 - **Generator UX** — poster thumbnail + overview in the search results, dark-mode Tk theme matching the dashboard, keyboard-only flow (Enter search → ↓ select → Enter save → space toggles seasons).
@@ -278,6 +267,29 @@ Finished work, kept for history. ✅ done · 🟡 in progress · ⬜ not started
 7. ~~Optional cleanups~~ — ✅ v0.4.13: CSV `N/A` → `''` (114 cells, backup `public/tv_series.csv.bak`), `status: KnownStatus | (string & {})`, `tsc -b` build.
 
 ### Shipped improvement ideas
+
+#### Pages — ✅ v0.4.37 (OpenSpec `refactor-page-structure`)
+- ~~**`usePageData()` / `<DataGate>`**~~ ✅ — shipped as a render-prop component (`src/components/DataGate.tsx`; a hook can't return early for the caller): Dashboard, Shows, Show Detail and Statistics go through it; page passes the context value in. jsdom test.
+- ~~**Split `DashboardPage`**~~ ✅ — 395 → 153 lines; `src/pages/dashboard/` `ShowRowCard`, `Highlights`, `ContinueWatching`, `RecentlyWatched`, `SidebarTabs`, `NotStartedList`, `ExploreCards` (props only). Unblocks P3 Customizable Dashboard.
+
+#### Pages — ✅ v0.4.36 (OpenSpec `add-time-left`) — all Pages P1 done
+- ~~**"Time left" on Show Detail + Continue Watching**~~ ✅ — `episodesLeft` / `minutesLeft` / `nextSeason` in `derive.ts` (null-aware, hidden when unknown); Show Detail Watch History "Time left" + "Next · Season N" lines; Continue Watching rows show `· Xh Ym left` and a per-visit Most watched / Least time left toggle (sorted before the top-6 slice, unknown runtime last via `compareAscNullsLast`).
+
+#### Pages — ✅ v0.4.35 (OpenSpec `add-cross-navigation-links`)
+- ~~**Everything is a link (cross-navigation)**~~ ✅ — Show Detail genre / status / network / creator (one link each) / actor / keyword tags and Dashboard Top Genres / Watch Status bars are real `<a>` links (`FilterLink`) to a filtered Shows list; targets only from `showsLink()` (literal `/shows` + encoded query — real links instead of the planned `navigate()`, so new-tab gestures work).
+
+#### Pages — ✅ v0.4.34 (OpenSpec `add-progress-filter`)
+- ~~**Progress filter**~~ ✅ — `Filters.progress` (`all` / `notStarted` / `inProgress` / `completed`, one definition: `progressOf` in `utils/showFilters.ts`, also used by Dashboard), select + chip + `?progress=`, saved; Dashboard Not Started and new Continue Watching "View all" open the filtered list.
+- ~~**Empty Shows result with a way out**~~ ✅ — `ShowGrid` `emptyAction`; "Clear filters" (keeps the sort) when filters are active.
+
+#### Pages + Entry / root — ✅ v0.4.33 (OpenSpec `shows-url-state`)
+- ~~**Shows state in the URL**~~ ✅ — `q` / `genre` / `status` / `sort` / `page` / `size` in the query string (defaults omitted, codec in `utils/showFilters.ts`), URL beats saved filters, saved filters seed an empty URL with `replace`, discrete changes push / typing replaces, invalid / stale values corrected with `replace`; `useScrollRestoration` restores `Content` scroll per history entry on Back / Forward for every page.
+
+#### Pages — ✅ v0.4.32 (OpenSpec `extract-show-filtering`)
+- ~~**Pure `filterAndSortShows()` + tests**~~ ✅ — `src/utils/showFilters.ts` (`parseFilters`, `buildSearchIndex`, `buildFilterSets`, `sanitizeFilters`, `filterAndSortShows`), 19 unit tests; `ShowsPage` keeps state, debounced save and memo wiring. No behavior change.
+
+#### Entry / root — ✅ v0.4.31 (OpenSpec `single-route-table`)
+- ~~**Single route table**~~ ✅ — `src/routes/pages.ts` `PAGES` (`page`, `path`, `load`, optional `nav`) feeds `PageKey`, `PAGE_LOADERS`, the router's page routes, sidebar / bottom-nav items and nav titles; `MENU_ITEMS` no longer strips `page`. Plus ~~`showLinkProps(tvId, navigate)`~~ ✅ (`utils/showLink.ts`) for `ShowCard`, Dashboard `ShowRowCard` and Not Started rows. No behavior change.
 
 #### Entry / root — ✅ v0.4.29 (OpenSpec `support-subpath-hosting`)
 - ~~**Base path from `import.meta.env.BASE_URL`**~~ ✅ — `paths.ts` (`BASE_PATH` → router `basename`, `CSV_URL`), `csvFile.ts` for e2e; PWA manifest / navigate fallback / CSV cache pattern made base-relative; `npm run e2e:subpath` proves a `--base=/sub/` build end to end; `build:pages` + `scripts/copy-404.mjs` for GitHub Pages. Open: a GitHub Actions Pages deploy workflow (doc-only so far).
@@ -314,6 +326,10 @@ Finished work, kept for history. ✅ done · 🟡 in progress · ⬜ not started
 - ~~**"System" theme option**~~ ✅ — first visit always lands on Default Dark. Add a `System` entry that follows `prefers-color-scheme` (Default Dark ↔ Default Light) and listens for changes via `matchMedia(...).addEventListener('change')`; make it the default when nothing is saved.
 - ~~**No flash on load**~~ ✅ — `index.html` has no background, so Light/Dracula users see a dark→theme (or white→dark) flash before React mounts. A tiny inline script that reads `tvdash-settings.themeName` and sets `html` background/`color-scheme` before the bundle runs. (Touches the "one CSS rule in index.html" convention — would need a documented exception.)
 
+#### Entry / root — ✅ v0.4.15 (OpenSpec `tidy-root-entry`)
+- ~~**`setupTests.ts` cleanup** — it loads `@testing-library/jest-dom` for every test while the default environment is `node`; move it to the jsdom tests only (or drop it if no matcher uses it).~~ ✅ — file + dependency dropped; jsdom tests import `@testing-library/jest-dom/vitest` themselves.
+- ~~**Clear mount error** — replace `document.getElementById('root')!` with an explicit check that throws `"#root element missing in index.html"`.~~ ✅
+
 #### Entry / root + Components — ✅ v0.4.15 (OpenSpec `add-route-document-titles`)
 - ~~**Per-route `document.title`**~~ ✅ — tab always says "TV Dashboard". Use the same title lookup as the header (`Dashboard · TV Dashboard`, `<show name> · TV Dashboard` on Show Detail) so browser history, bookmarks and tab switching are readable.
 - ~~**Show name in the header**~~ ✅ — `AppLayout` already reads the context (for `warnings`); on `/shows/:id` it can show the series name instead of the generic "Show Detail" (fallback to "Show Detail" while loading / not found).
@@ -337,10 +353,10 @@ Finished work, kept for history. ✅ done · 🟡 in progress · ⬜ not started
 
 #### Entry / root (`src/`) — ✅ Review complete (2026-11-23: code-review, simplify, security-review)
 - `main.tsx` — entry point, React.StrictMode
-- `App.tsx` — provider stack + routes
-- `ThemeContext.tsx` — `ThemeProvider` + `useTheme()`
-- `themes.ts` — `Theme` type, 3 themes (Default Dark, Default Light, Dracula)
-- `setupTests.ts` — test setup
+- `App.tsx` — provider stack + routes (data router since v0.4.24)
+- `ThemeContext.tsx` — `ThemeProvider` + `useTheme()` (`AppThemeProvider` since v0.4.19)
+- `themes.ts` — `Theme` type, 3 themes (Default Dark, Default Light, Dracula) — 7 + Custom since v0.4.27 / v0.4.26
+- `setupTests.ts` — test setup (removed in v0.4.15, `tidy-root-entry`)
 
 #### Pages (`src/pages/`) — ✅ Review complete (2026-11-23: simplify, code-review, security-review)
 - `DashboardPage.tsx`

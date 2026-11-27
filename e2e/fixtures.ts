@@ -13,9 +13,10 @@ export const GOOD_POSTER =
 // Deterministic (no 404 / network error in the console, same under any server).
 export const BROKEN_POSTER = '/e2e-broken-poster.png'
 
-interface Row {
+export interface Row {
   id: number | string
   name: string
+  status?: string
   lang?: string
   seasons?: string
   runtime?: string
@@ -28,28 +29,38 @@ interface Row {
   totalEpisodes?: string
   runtimeWatched?: string
   firstAirDate?: string
+  // Comma-separated, written as one quoted CSV field
+  genres?: string
+  keywords?: string
 }
 
-function row(r: Row): string {
+// One CSV data row (TEST_CSV, or a spec's own `csv` option) — only the fields a test is about
+export function row(r: Row): string {
   const d = {
     lang: 'en', seasons: '3', runtime: '45', year: '2015', rating: '7.5', poster: GOOD_POSTER, age: 'TV-14',
     seasonsWatched: '1', episodesWatched: '10', totalEpisodes: '30', runtimeWatched: '450', firstAirDate: '2015-03-01',
+    genres: 'Drama', keywords: 'kw', status: 'Ended',
     ...r,
   }
   return [
-    d.id, d.name, d.lang, d.seasons, d.runtime, d.year, '"Drama"', 'Someone', 'Net', 'Ended', d.totalEpisodes,
-    '2016-01-01', '12.5', '100', d.rating, '"A, B"', 'kw', d.firstAirDate, 'An overview', '', `"${d.poster}"`, d.age,
+    d.id, d.name, d.lang, d.seasons, d.runtime, d.year, `"${d.genres}"`, 'Someone', 'Net', d.status, d.totalEpisodes,
+    '2016-01-01', '12.5', '100', d.rating, '"A, B"', `"${d.keywords}"`, d.firstAirDate, 'An overview', '', `"${d.poster}"`, d.age,
     `"${d.seasonsWatched}"`, d.episodesWatched, d.runtimeWatched,
   ].join(',')
 }
 
-// 5 valid shows covering every "unknown value" path, plus 3 rows the parser must skip
+// 6 valid shows covering every "unknown value" path and each progress state (not started:
+// Unknowny, Huge; in progress: Alpha, Fraction, Newbie; completed: Finished), plus 3 rows the parser must skip
 export const TEST_CSV = csv(
-  row({ id: 1, name: 'Alpha', rating: '8.5', poster: BROKEN_POSTER }),
+  // Alpha: an '&' genre and a hostile keyword for the cross-navigation link tests
+  row({ id: 1, name: 'Alpha', rating: '8.5', poster: BROKEN_POSTER, genres: 'Drama,Sci-Fi & Fantasy', keywords: 'kw,javascript:alert(1)' }),
   row({
     id: 2, name: 'Unknowny', lang: 'N/A', seasons: '', runtime: '-5', year: '', rating: '0', poster: '', age: 'N/A',
     seasonsWatched: '', episodesWatched: '0', runtimeWatched: '0', firstAirDate: '',
   }),
+  // Completed (watched = total): one show per progress state. Kept before the last 3 rows, so
+  // Recently Watched (the last 3) and every Highlight stay the same
+  row({ id: 6, name: 'Finished', year: '2010', rating: '7.2', episodesWatched: '30', totalEpisodes: '30' }),
   row({ id: 3, name: 'Fraction', seasons: '2.5', runtime: '0', year: '2020', rating: '7.0', episodesWatched: '5', totalEpisodes: '10' }),
   row({ id: 4, name: 'Huge', seasons: '1e7', year: '2022', rating: '9.1', poster: BROKEN_POSTER, seasonsWatched: '', episodesWatched: '0', runtimeWatched: '0' }),
   row({ id: 5, name: 'Newbie', year: '2024', rating: '6.0', runtime: '30', runtimeWatched: '3000', episodesWatched: '20', totalEpisodes: '40' }),
@@ -126,6 +137,7 @@ export const test = base.extend<{
   },
 })
 export { expect }
+export type { Page }
 
 export const content = (page: Page): Locator => page.locator('.ant-layout-content')
 // Header title (AppLayout's level-4 Title) and a desktop sidebar nav item
@@ -134,13 +146,32 @@ export const sidebarItem = (page: Page, name: string): Locator => page.locator('
 export const scrollContent = (page: Page, y: number) => content(page).evaluate((el, top) => el.scrollTo(0, top), y)
 // Mobile BottomNav (below lg)
 export const bottomNav = (page: Page): Locator => page.locator('nav').filter({ has: page.getByRole('button', { name: 'Dashboard' }) })
-export const themeSelect = (page: Page): Locator => page.locator('.ant-select', { has: page.locator('#theme-select') })
+// Whole-text match for `hasText` — the text is escaped, so labels with ( ) + ? . match literally
+export const exactText = (text: string): RegExp => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
+
+// Clickable show cards / rows in the page content, and their aria-labels sorted
+export const showCards = (page: Page): Locator => content(page).locator('[role=button][aria-label]')
+export const showCardNames = (page: Page): Promise<(string | null)[]> =>
+  showCards(page).evaluateAll(els => els.map(e => e.getAttribute('aria-label')).sort())
+// Dashboard's Continue Watching section (heading + order toggle + rows)
+export const continueSection = (page: Page): Locator =>
+  page.getByRole('heading', { name: 'Continue Watching', level: 5 }).locator('xpath=../..')
+
+// antd Select by its input id; pickOption opens it, clicks the exact option and closes the dropdown
+export const selectById = (page: Page, id: string): Locator => page.locator('.ant-select', { has: page.locator(`#${id}`) })
+export async function pickOption(page: Page, id: string, option: string): Promise<void> {
+  await selectById(page, id).locator('.ant-select-selector').click()
+  await page.locator('.ant-select-dropdown:visible .ant-select-item-option', { hasText: exactText(option) }).click()
+  await page.keyboard.press('Escape')
+}
+
+export const themeSelect = (page: Page): Locator => selectById(page, 'theme-select')
 export const selectedTheme = (page: Page): Locator => themeSelect(page).locator('.ant-select-selection-item')
 
 // Picks a theme in the header selector (exact option text) and waits until it's selected
 export async function pickTheme(page: Page, name: string): Promise<void> {
   await themeSelect(page).click()
-  await page.locator('.ant-select-item-option').filter({ hasText: new RegExp(`^${name}$`) }).click()
+  await page.locator('.ant-select-item-option').filter({ hasText: exactText(name) }).click()
   await expect(selectedTheme(page)).toHaveText(name)
 }
 
@@ -229,14 +260,17 @@ export const fallbackIcon = (scope: Locator): Locator => scope.locator('.anticon
 // Client-side navigation (react-router listens to popstate) — the page component is NOT remounted
 export async function spaNavigate(page: Page, to: string): Promise<void> {
   await page.evaluate(p => {
-    history.pushState({}, '', p)
+    // A new history entry the way React Router pushes one: its own `key` (scroll positions are
+    // stored per key — `{}` would reuse the initial entry's 'default' key) and the next `idx`
+    const idx = ((history.state as { idx?: number } | null)?.idx ?? 0) + 1
+    history.pushState({ usr: null, key: Math.random().toString(36).slice(2, 10), idx }, '', p)
     dispatchEvent(new PopStateEvent('popstate'))
   }, to)
 }
 
 export function descriptionValue(page: Page, label: string): Locator {
   return page
-    .locator('.ant-descriptions-item', { has: page.locator('.ant-descriptions-item-label', { hasText: new RegExp(`^${label}$`) }) })
+    .locator('.ant-descriptions-item', { has: page.locator('.ant-descriptions-item-label', { hasText: exactText(label) }) })
     .locator('.ant-descriptions-item-content')
 }
 

@@ -1,18 +1,13 @@
 import type { ComponentType } from 'react'
+import { PAGES, type PageKey, type PageModule } from './pages'
 
 // One place for page code loading: the route `lazy` functions (App), intent prefetch (nav items,
-// show cards) and the idle prefetch policy.
+// show cards) and the idle prefetch policy. The loaders themselves live in the PAGES table.
 
-export type PageKey = 'dashboard' | 'shows' | 'statistics' | 'showDetail'
-
-type PageModule = { default: ComponentType }
-
-export const PAGE_LOADERS: Record<PageKey, () => Promise<PageModule>> = {
-  dashboard: () => import('../pages/DashboardPage').then(m => ({ default: m.DashboardPage })),
-  shows: () => import('../pages/ShowsPage').then(m => ({ default: m.ShowsPage })),
-  statistics: () => import('../pages/StatisticsPage').then(m => ({ default: m.StatisticsPage })),
-  showDetail: () => import('../pages/ShowDetailPage').then(m => ({ default: m.ShowDetailPage })),
-}
+export const PAGE_LOADERS = Object.fromEntries(PAGES.map(p => [p.page, p.load])) as Record<
+  PageKey,
+  () => Promise<PageModule>
+>
 
 // Data-router route `lazy`: calls the raw loader (the browser's module map dedupes it with an
 // in-flight prefetch) and hands the page over as the route's Component

@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   ageRatingDistribution,
   avgRating,
+  compareAscNullsLast,
   compareDescNullsLast,
+  episodesLeft,
+  minutesLeft,
+  nextSeason,
   completionByGenre,
   completionRate,
   findShow,
@@ -25,38 +29,7 @@ import {
   watchTimeByDecade,
   watchTimeByYear,
 } from './derive'
-import type { TvSeries } from '../types/series'
-
-function makeSeries(overrides: Partial<TvSeries> = {}): TvSeries {
-  return {
-    tvId: 1,
-    name: 'Test Show',
-    language: 'en',
-    seasons: 1,
-    episodeRuntime: 45,
-    firstAirYear: 2020,
-    genres: ['Drama'],
-    creators: ['Creator A'],
-    networks: ['Netflix'],
-    status: 'Ended',
-    totalEpisodes: 10,
-    lastEpisodeAirDate: '2021-01-01',
-    popularity: 100,
-    voteCount: 500,
-    voteAverage: 7.5,
-    actors: ['Actor A'],
-    keywords: [],
-    firstAirDate: '2020-01-01',
-    overview: '',
-    tagline: '',
-    posterUrl: '',
-    ageRating: 'TV-14',
-    seasonsWatched: [1],
-    episodesWatched: 10,
-    totalRuntimeWatched: 450,
-    ...overrides,
-  }
-}
+import { makeSeries } from './series.fixture'
 
 describe('findShow', () => {
   const data = [makeSeries({ tvId: 1, name: 'One' }), makeSeries({ tvId: 12, name: 'Twelve' })]
@@ -425,5 +398,49 @@ describe('compareDescNullsLast', () => {
 describe('languageDistribution own-key lookup', () => {
   it('does not resolve inherited keys as language names', () => {
     expect(languageDistribution([makeSeries({ language: 'constructor' })])).toEqual([{ name: 'CONSTRUCTOR', value: 1 }])
+  })
+})
+
+describe('time left', () => {
+  it('10 × 50min with 6 watched → 4 episodes, 200 minutes', () => {
+    const s = makeSeries({ totalEpisodes: 10, episodesWatched: 6, episodeRuntime: 50 })
+    expect(episodesLeft(s)).toBe(4)
+    expect(minutesLeft(s)).toBe(200)
+  })
+
+  it('unknown runtime → null minutes, episodes still counted', () => {
+    const s = makeSeries({ totalEpisodes: 10, episodesWatched: 6, episodeRuntime: null })
+    expect(episodesLeft(s)).toBe(4)
+    expect(minutesLeft(s)).toBeNull()
+  })
+
+  it('over-watched → 0, never negative', () => {
+    const s = makeSeries({ totalEpisodes: 5, episodesWatched: 8, episodeRuntime: 30 })
+    expect(episodesLeft(s)).toBe(0)
+    expect(minutesLeft(s)).toBe(0)
+  })
+})
+
+describe('nextSeason', () => {
+  it('first gap in watched seasons', () => {
+    expect(nextSeason(makeSeries({ seasons: 5, seasonsWatched: [1, 2, 4] }))).toBe(3)
+  })
+
+  it('none watched → 1', () => {
+    expect(nextSeason(makeSeries({ seasons: 3, seasonsWatched: [] }))).toBe(1)
+  })
+
+  it('all watched → null', () => {
+    expect(nextSeason(makeSeries({ seasons: 3, seasonsWatched: [1, 2, 3] }))).toBeNull()
+  })
+
+  it('unknown season count → null', () => {
+    expect(nextSeason(makeSeries({ seasons: null, seasonsWatched: [1] }))).toBeNull()
+  })
+})
+
+describe('compareAscNullsLast', () => {
+  it('sorts ascending with nulls last', () => {
+    expect([3, null, 1, 2, null].sort(compareAscNullsLast)).toEqual([1, 2, 3, null, null])
   })
 })

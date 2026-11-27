@@ -45,6 +45,30 @@ export function compareDescNullsLast(a: number | null, b: number | null): number
   return b - a
 }
 
+// Ascending comparator with unknown (null) values last — negating for compareDescNullsLast would misplace nulls
+export function compareAscNullsLast(a: number | null, b: number | null): number {
+  if (a == null || b == null) return (a == null ? 1 : 0) - (b == null ? 1 : 0)
+  return a - b
+}
+
+// Unwatched episodes, never below zero (over-watched rows → 0)
+export function episodesLeft(s: TvSeries): number {
+  return Math.max(0, s.totalEpisodes - s.episodesWatched)
+}
+
+// Remaining watch time in minutes; null when the episode runtime is unknown
+export function minutesLeft(s: TvSeries): number | null {
+  return s.episodeRuntime == null ? null : episodesLeft(s) * s.episodeRuntime
+}
+
+// Lowest season in 1..seasons not yet watched; null when the count is unknown or all are watched
+export function nextSeason(s: TvSeries): number | null {
+  if (s.seasons == null) return null
+  const watched = new Set(s.seasonsWatched)
+  for (let n = 1; n <= s.seasons; n++) if (!watched.has(n)) return n
+  return null
+}
+
 // Row with the largest non-null `pick` value (first in data order on ties); undefined if none
 export function maxBy(data: TvSeries[], pick: (s: TvSeries) => number | null): TvSeries | undefined {
   let best: TvSeries | undefined

@@ -7,11 +7,12 @@ import { LoadingState } from './components/LoadingState'
 import { PageError, PagesOutlet, RootRouteError } from './components/RouteErrors'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { lazyPage, prefetchAllWhenIdle } from './routes/pageLoaders'
+import { PAGES, type PageKey } from './routes/pages'
 import { BASE_PATH } from './constants/paths'
 
 // HydrateFallback = first load only (the matched page's code isn't there yet); later
 // navigations keep the current page on screen while the next one loads (NavProgress)
-const page = (key: Parameters<typeof lazyPage>[0]) => ({ lazy: lazyPage(key), HydrateFallback: LoadingState })
+const page = (key: PageKey) => ({ lazy: lazyPage(key), HydrateFallback: LoadingState })
 
 const ROUTES: RouteObject[] = [
   {
@@ -24,10 +25,7 @@ const ROUTES: RouteObject[] = [
         element: <PagesOutlet />,
         errorElement: <PageError />,
         children: [
-          { path: '/', ...page('dashboard') },
-          { path: '/shows', ...page('shows') },
-          { path: '/shows/:id', ...page('showDetail') },
-          { path: '/stats', ...page('statistics') },
+          ...PAGES.map(p => ({ path: p.path, ...page(p.page) })),
           { path: '*', Component: NotFoundPage },
         ],
       },

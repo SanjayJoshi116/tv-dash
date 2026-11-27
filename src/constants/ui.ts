@@ -1,5 +1,5 @@
 import type { Grid } from 'antd'
-import type { SortKey } from '../types/filters'
+import type { Progress, SortKey } from '../types/filters'
 import { KNOWN_STATUSES, type KnownStatus } from '../types/series'
 import { lookup } from '../utils/lookup'
 import type { Theme, Tier } from '../themes'
@@ -49,6 +49,15 @@ const SORT_LABELS: Record<SortKey, string> = {
   name: 'Name A–Z',
 }
 export const SORT_OPTIONS = (Object.keys(SORT_LABELS) as SortKey[]).map(value => ({ label: SORT_LABELS[value], value }))
+
+// Progress filter options (FilterBar select + chip) — a new Progress value without a label fails
+// to compile; 'all' is the cleared select, not an option
+export const PROGRESS_LABELS: Record<Exclude<Progress, 'all'>, string> = {
+  notStarted: 'Not started',
+  inProgress: 'In progress',
+  completed: 'Completed',
+}
+export const PROGRESS_OPTIONS = (Object.keys(PROGRESS_LABELS) as Exclude<Progress, 'all'>[]).map(value => ({ label: PROGRESS_LABELS[value], value }))
 
 export const SPACING = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const
 export const SECTION_GAP = 24

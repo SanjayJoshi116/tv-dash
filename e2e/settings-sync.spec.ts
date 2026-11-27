@@ -43,6 +43,18 @@ test('Shows filters are not applied live; the other tab picks them up on its nex
   await expect(b.locator('#shows-search')).toHaveValue('frac')
 })
 
+test("a filtered Shows link in the other tab shows the link's filters, not the saved ones", async ({ page: a, newTab }) => {
+  const b = await newTab()
+  await a.goto('/shows')
+  await a.locator('#shows-search').fill('frac')
+  await expect.poll(() => a.evaluate(key => localStorage.getItem(key) ?? '', SETTINGS_KEY)).toContain('"frac"')
+
+  await b.goto('/shows?q=alp')
+  await expect(b.locator('#shows-search')).toHaveValue('alp')
+  await expect(b.getByRole('button', { name: 'Alpha' })).toBeVisible()
+  await expect(b.getByRole('button', { name: 'Fraction' })).toHaveCount(0)
+})
+
 test('corrupt or unknown settings from another tab are ignored', async ({ page: a, newTab }) => {
   const b = await newTab()
   await a.goto('/')

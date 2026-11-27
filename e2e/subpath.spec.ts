@@ -34,6 +34,23 @@ test('a deep link to a show renders it (server falls back to the entry page)', a
   await expect(header(page, 'Alpha')).toBeVisible()
 })
 
+test('Shows filters in the URL stay under the base', async ({ page }) => {
+  await page.goto(`${BASE}shows?q=alp`)
+  await expect(page.locator('#shows-search')).toHaveValue('alp')
+  await expect(page.getByRole('button', { name: 'Alpha' })).toBeVisible()
+  await page.locator('#shows-search').press('End')
+  await page.locator('#shows-search').pressSequentially('h')
+  await expect(page).toHaveURL(/\/sub\/shows\?q=alph$/)
+})
+
+test('a Show Detail genre link stays under the base', async ({ page }) => {
+  await page.goto(`${BASE}shows/3`)
+  const genre = page.getByRole('link', { name: 'Shows in genre Drama', exact: true })
+  expect(await genre.getAttribute('href')).toBe('/sub/shows?genre=Drama')
+  await genre.click()
+  await expect(page).toHaveURL(/\/sub\/shows\?genre=Drama$/)
+})
+
 test('an unknown path under the base shows the not-found page inside the shell', async ({ page }) => {
   await page.goto(`${BASE}nope`)
   await expect(header(page, 'Page not found')).toBeVisible()
